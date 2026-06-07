@@ -36,7 +36,7 @@ if [ -f "${TARGET_DIR}/package.json" ]; then
 	npm install react-native-config react-native-bootsplash --prefix "${TARGET_DIR}"
 	npm uninstall @react-native/new-app-screen --prefix "${TARGET_DIR}"
 	npm install -D @react-native-community/cli --prefix "${TARGET_DIR}"
-	
+
 	# Fix React Native 0.85 compatibility issue with Java 26 & Gradle 9.3.1
 	echo "Patching Foojay plugin version for Gradle 9+ compatibility..."
 	perl -pi -e 's/"0\.5\.0"/"1.0.0"/g' "${TARGET_DIR}/node_modules/\@react-native/gradle-plugin/settings.gradle.kts" 2>/dev/null || true
@@ -76,7 +76,7 @@ if [ -f "${APP_JSON}" ]; then
 		JAVA17_PATH=$(/usr/libexec/java_home -v 17 2>/dev/null || echo "")
 	fi
 	if [ -n "$JAVA17_PATH" ]; then
-		echo "org.gradle.java.home=$JAVA17_PATH" >> "${TARGET_DIR}/android/gradle.properties"
+		echo "org.gradle.java.home=$JAVA17_PATH" >>"${TARGET_DIR}/android/gradle.properties"
 		echo "Locked Gradle daemon to Java 17 at $JAVA17_PATH"
 	else
 		echo "Warning: Could not automatically locate Java 17. You may encounter jlink build errors on Java 21+."
@@ -275,13 +275,11 @@ EOF
 		if [ -f "${STYLES_XML}" ]; then
 			perl -0777 -pi -e 's/\s*<item name="android:editTextBackground">\@drawable\/rn_edit_text_material<\/item>\n?//g' "${STYLES_XML}"
 		fi
-        # Remove unwanted React Native default drawable from main
-        rm -f "${TARGET_DIR}/android/app/src/main/res/drawable/rn_edit_text_material.xml"
+		# Remove unwanted React Native default drawable from main
+		rm -f "${TARGET_DIR}/android/app/src/main/res/drawable/rn_edit_text_material.xml"
 
 		for SUFFIX in dev staging prd; do
 			cp -R "${TARGET_DIR}/android/app/src/main/res/." "${TARGET_DIR}/android/app/src/${SUFFIX}/res/"
-
-			
 
 			STRINGS_XML="${TARGET_DIR}/android/app/src/${SUFFIX}/res/values/strings.xml"
 			if [ -f "${STRINGS_XML}" ]; then
@@ -314,7 +312,7 @@ if [ -d "${FASTLANE_TEMPLATE_DIR}" ]; then
 		find "${TARGET_DIR}/android/fastlane" "${TARGET_DIR}/ios/fastlane" -type f -exec perl -pi -e "s/com\.baseapp\.app/$BASE_APP_ID/g" {} +
 	fi
 	find "${TARGET_DIR}/android/fastlane" "${TARGET_DIR}/ios/fastlane" -type f -exec perl -pi -e "s/baseApp/$PROJECT_NAME/g" {} +
-	
+
 	# Replace generic generic 'default' values with the actual INITIAL_BRAND
 	find "${TARGET_DIR}/android/fastlane" "${TARGET_DIR}/ios/fastlane" -type f -exec perl -pi -e "s/'default'/'$INITIAL_BRAND'/g" {} +
 	find "${TARGET_DIR}/android/fastlane" "${TARGET_DIR}/ios/fastlane" -type f -exec perl -pi -e "s/\"default\"/\"$INITIAL_BRAND\"/g" {} +
@@ -378,7 +376,7 @@ const App = () => {
             style={styles.logo} 
             resizeMode="contain" 
           />
-          <Text style={styles.brandName}>${PROJECT_NAME}</Text>
+          <Text style={styles.brandName}>${INITIAL_BRAND}</Text>
         </View>
         <View style={styles.content}>
           <Text style={styles.welcomeText}>Welcome to the whitelabel application!</Text>
