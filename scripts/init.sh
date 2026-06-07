@@ -352,7 +352,8 @@ if [ -f "${APP_TSX}" ]; then
 	echo "Overwriting default App.tsx with custom branded screen..."
 	cat <<EOF >"${APP_TSX}"
 import React, { useEffect } from 'react';
-import { View, Text, Image, StyleSheet, SafeAreaView, StatusBar } from 'react-native';
+import { View, Text, Image, StyleSheet, StatusBar } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import BootSplash from 'react-native-bootsplash';
 
 const App = () => {
@@ -368,20 +369,22 @@ const App = () => {
   }, []);
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-      <View style={styles.header}>
-        <Image 
-          source={require('./src/config/brands/${INITIAL_BRAND}/images/logo/logo.png')} 
-          style={styles.logo} 
-          resizeMode="contain" 
-        />
-        <Text style={styles.brandName}>${PROJECT_NAME}</Text>
-      </View>
-      <View style={styles.content}>
-        <Text style={styles.welcomeText}>Welcome to the whitelabel application!</Text>
-      </View>
-    </SafeAreaView>
+    <SafeAreaProvider>
+      <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
+        <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+        <View style={styles.header}>
+          <Image 
+            source={require('./src/config/brands/${INITIAL_BRAND}/images/logo/logo.png')} 
+            style={styles.logo} 
+            resizeMode="contain" 
+          />
+          <Text style={styles.brandName}>${PROJECT_NAME}</Text>
+        </View>
+        <View style={styles.content}>
+          <Text style={styles.welcomeText}>Welcome to the whitelabel application!</Text>
+        </View>
+      </SafeAreaView>
+    </SafeAreaProvider>
   );
 };
 
