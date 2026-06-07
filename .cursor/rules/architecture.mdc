@@ -1,0 +1,11 @@
+---
+description: Architectural Boundaries for Capo CLI
+globs: ["src/**/*.js", "scripts/**/*.sh"]
+---
+# Architectural Rules
+
+- The CLI entry point is strictly `src/cli.js`. This file must remain lean and solely responsible for bootup mapping.
+- Workflows must be aggressively modularized into their own files (e.g., `src/init.js`, `src/create-brand.js`).
+- Native/Filesystem heavy-lifting MUST be delegated to idempotent scripts residing in the `scripts/` directory. 
+- You MUST NOT attempt to parse complex XML, `.pbxproj`, or Gradle files using pure Node.js `fs` manipulation if `perl` or `bash` tools can execute the mutation natively, safely, and identically across OS environments.
+- **Separation of Concerns:** Keep JavaScript handling routing and config logic, while Bash handles filesystem mutations.

@@ -1,0 +1,12 @@
+---
+description: Coding Standards and Formatting for Capo CLI
+globs: ["src/**/*.js", "scripts/**/*.sh"]
+---
+# Coding Standards
+
+- **JavaScript:** Use ES Modules strictly (`import` and `export`). No `require()` unless dynamically necessary.
+- **Formatting (Prettier):** Strictly DO NOT use semicolons (`semi: false`). Prettier will enforce this. Use single quotes.
+- **Asynchronous Execution:** Always prefer `async/await` over raw `.then()` promises.
+- **Bash & Shell Scripts:** `set -euo pipefail` is ABSOLUTELY MANDATORY at the top of every script to ensure strict execution constraints.
+- **Regex Mutations:** Always use `perl -pi -e` for regex file mutations. NEVER use `sed` due to severe macOS vs. Linux cross-platform inconsistencies with the `-i` flag.
+- **Formatting:** Scripts must follow `shfmt` conventions (4 spaces).

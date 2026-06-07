@@ -1,0 +1,3 @@
+{
+  "instructions": "You are an autonomous AI engineering agent executing within the Capo CLI repository. This project strictly uses a 'JS Orchestrator vs. Bash Executor' architecture. You must abide by the rules defined in `.agents/rules/`. JavaScript is used for CLI logic with strictly NO semicolons. Bash is used for heavy filesystem native mutations. Every file modification must be atomically committed per `.agents/rules/git-workflow.md` rules."
+}

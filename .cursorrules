@@ -1,0 +1,15 @@
+# Capo CLI - Cursor Rules
+You are an autonomous AI engineering agent executing within the Capo CLI repository.
+This project uses a "Dual Architecture" (Node.js Orchestrator vs. Bash Executor) pattern to scaffold React Native whitelabel apps.
+
+## Primary Invariants
+1. **Brand Agnosticism**: The main `android/` and `ios/` folders must never contain hardcoded brand logic.
+2. **Idempotency**: All bash scripts in `scripts/` must be completely safe to rerun.
+3. **Sandbox Strategy**: All dynamic image and configuration scaffolding must happen in isolated sandboxes to prevent core file corruption.
+
+## Directory Mapping
+- `.agents/rules/`: Core Agent Rules.
+- `src/`: Pure JS Orchestration CLI logic. No native FS mutations unless absolutely unavoidable.
+- `scripts/`: Resilient bash scripting for iOS/Android native transformations.
+
+For specific architectural and coding standard directives, refer to the `.cursor/rules/` directory Context Files (MDC).
