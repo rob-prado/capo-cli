@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 /**
  * Main entry point for the Capo CLI.
- * Handles the top-level orchestration, presenting the initial action menu,
- * parsing CLI flags, and routing to the appropriate workflow sub-modules.
+ * Uses a dynamic Command Loader pattern to fetch and execute workflows
+ * based on the user's current initialization state.
  */
 
+import fs from 'fs'
+import path from 'path'
 import inquirer from 'inquirer'
 import chalk from 'chalk'
-import { questions } from './questions.js'
-import { initProject } from './init.js'
-import { createBrand } from './create-brand.js'
+import { loadCommands } from './commands/index.js'
 
 /**
  * Parses command line arguments into an object of key-value pairs.
@@ -30,9 +30,16 @@ function parseArgs(args) {
 }
 
 /**
- * Initializes and runs the CLI orchestrator.
- * Uses parsed CLI flags to bypass interactive prompts when explicitly provided,
- * and routes execution to the correct workflow logic.
+ * Checks if the current working directory is an initialized project.
+ *
+ * @returns {boolean} True if package.json exists.
+ */
+function isProjectInitialized() {
+  return fs.existsSync(path.resolve(process.cwd(), 'package.json'))
+}
+
+/**
+ * Initializes and runs the dynamic CLI orchestrator.
  *
  * @returns {Promise<void>}
  */
@@ -41,61 +48,57 @@ async function runCLI() {
 
   try {
     const args = parseArgs(process.argv.slice(2))
+    const allCommands = await loadCommands()
+    const isInitialized = isProjectInitialized()
 
-    // 1. Determine top-level action (Bypass prompt if provided via --action)
+    // Filter commands based on current directory context
+    const availableCommands = allCommands.filter(
+      (cmd) => cmd.requireInit === isInitialized,
+    )
+
     let action = args.action
+
     if (!action) {
-      const answer = await inquirer.prompt([questions.action])
+      if (availableCommands.length === 0) {
+        console.log(chalk.yellow('No actions available for this context.'))
+        process.exit(0)
+      }
+
+      // Dynamically construct Inquirer choices from the loaded commands
+      const choices = availableCommands.map((cmd) => ({
+        name: chalk.green(cmd.description),
+        value: cmd.name,
+      }))
+
+      const answer = await inquirer.prompt([
+        {
+          type: 'list',
+          name: 'action',
+          message: chalk.blue('What would you like to do?'),
+          choices,
+        },
+      ])
       action = answer.action
     }
 
-    // 2. Route based on the selected action
-    switch (action) {
-      case 'init': {
-        // Determine which inputs are missing and require user interaction
-        const prompts = []
-        if (!args.projectName) prompts.push(questions.projectName)
-        if (!args.initialBrand) prompts.push(questions.initialBrand)
+    // Lookup the selected command
+    const targetCommand = availableCommands.find((cmd) => cmd.name === action)
 
-        // Prompt only for the missing values
-        const answers = prompts.length > 0 ? await inquirer.prompt(prompts) : {}
-
-        // Merge CLI flags with interactive answers
-        const projectName = args.projectName || answers.projectName
-        const initialBrand = args.initialBrand || answers.initialBrand
-
-        // Execute the init workflow
-        initProject(projectName, initialBrand)
-        break
-      }
-
-      case 'create-brand': {
-        const brandName = args.brandName
-        await createBrand(brandName)
-        break
-      }
-
-      case 'run':
-      case 'pack':
-      case 'release':
-        console.log(
-          chalk.yellow(
-            `\nFeature '${action}' is under construction in the Agent-First architecture.`,
-          ),
-        )
-        process.exit(0)
-        break
-
-      default:
-        console.error(chalk.red(`\nUnknown action selected: ${action}`))
-        process.exit(1)
+    if (!targetCommand) {
+      console.error(
+        chalk.red(
+          `\nUnknown or unavailable action selected for this context: ${action}`,
+        ),
+      )
+      process.exit(1)
     }
+
+    // Execute the command's dynamic run function, passing the parsed args
+    await targetCommand.run(args)
   } catch (error) {
-    // Catch any prompt interruptions or generic runtime errors
     console.error(chalk.red(`\nCLI Error: ${error.message}`))
     process.exit(1)
   }
 }
 
-// Execute the main orchestrator
 runCLI()
