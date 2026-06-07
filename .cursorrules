@@ -13,3 +13,6 @@ This project uses a "Dual Architecture" (Node.js Orchestrator vs. Bash Executor)
 - `scripts/`: Resilient bash scripting for iOS/Android native transformations.
 
 For specific architectural and coding standard directives, refer to the `.cursor/rules/` directory Context Files (MDC).
+
+## Active Context Check
+Before executing any deep filesystem manipulations, you MUST cross-reference `docs/invariants.md` and `docs/risk-analysis.md` to understand the system fragilities.
