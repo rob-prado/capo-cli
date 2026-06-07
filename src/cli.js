@@ -9,6 +9,7 @@ import inquirer from 'inquirer'
 import chalk from 'chalk'
 import { questions } from './questions.js'
 import { initProject } from './init.js'
+import { createBrand } from './create-brand.js'
 
 /**
  * Parses command line arguments into an object of key-value pairs.
@@ -68,7 +69,12 @@ async function runCLI() {
         break
       }
 
-      case 'create-brand':
+      case 'create-brand': {
+        const brandName = args.brandName
+        await createBrand(brandName)
+        break
+      }
+
       case 'run':
       case 'pack':
       case 'release':
