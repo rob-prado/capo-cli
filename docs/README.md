@@ -1,0 +1,1 @@
+**AGENT INSTRUCTION:** This directory holds long-term project documentation, Architecture Decision Records (ADRs), and domain knowledge. Agents should consult this folder to understand the 'why' behind the codebase.

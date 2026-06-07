@@ -1,0 +1,1 @@
+**AGENT INSTRUCTION:** This directory is the staging area for Spec-Driven Development. Agents MUST write implementation plans, technical specs, and checklists here for human review BEFORE writing any actual code in `src/` or `scripts/`. Do not pollute the main codebase with unapproved logic.
