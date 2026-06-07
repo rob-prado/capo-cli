@@ -25,7 +25,7 @@ fi
 # Deduction Logic: If OLD_BRAND is empty, extract it dynamically
 if [ -z "${OLD_BRAND}" ]; then
     echo "[Deep Rename] OLD_BRAND not explicitly provided. Attempting deduction..."
-    
+
     if [ ! -f "${TARGET_DIR}/app.json" ]; then
         echo "[Deep Rename] Fatal: Cannot deduce active brand. '${TARGET_DIR}/app.json' is missing."
         exit 1
@@ -40,7 +40,7 @@ if [ -z "${OLD_BRAND}" ]; then
         echo "[Deep Rename] Fatal: Could not extract 'name' property from '${TARGET_DIR}/app.json'."
         exit 1
     fi
-    
+
     echo "[Deep Rename] Successfully deduced OLD_BRAND as '${OLD_BRAND}'."
 fi
 
@@ -61,7 +61,7 @@ echo "[Deep Rename] Processing iOS artifacts..."
 if [ -d "${TARGET_DIR}/ios" ]; then
     # Target .pbxproj, Info.plist, Podfile, xcschemes, AppDelegate, and Firebase configs
     find "${TARGET_DIR}/ios" -type f \( -name "*.pbxproj" -o -name "Info.plist" -o -name "Podfile" -o -name "*.xcscheme" -o -name "AppDelegate.*" -o -name "*.plist" -o -name "*.json" \) -exec perl -pi -e 's/\Q$ENV{OLD}\E/$ENV{NEW}/g' {} +
-    
+
     # Rename Directories and core project files
     if [ -d "${TARGET_DIR}/ios/${OLD_BRAND}" ]; then
         mv "${TARGET_DIR}/ios/${OLD_BRAND}" "${TARGET_DIR}/ios/${NEW_BRAND}"
@@ -86,7 +86,7 @@ echo "[Deep Rename] Processing Android artifacts..."
 if [ -d "${TARGET_DIR}/android" ]; then
     # Target build.gradle, strings.xml, settings.gradle, Firebase configs, and Main components
     find "${TARGET_DIR}/android" -type f \( -name "build.gradle" -o -name "strings.xml" -o -name "settings.gradle" -o -name "MainActivity.*" -o -name "MainApplication.*" -o -name "*.json" \) -exec perl -pi -e 's/\Q$ENV{OLD}\E/$ENV{NEW}/g' {} +
-    
+
     # Rename Android Java Package Directory
     LOWER_OLD=$(echo "$OLD_BRAND" | tr '[:upper:]' '[:lower:]')
     LOWER_NEW=$(echo "$NEW_BRAND" | tr '[:upper:]' '[:lower:]')
