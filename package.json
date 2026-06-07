@@ -1,0 +1,17 @@
+{
+  "name": "capo-cli",
+  "version": "1.0.0",
+  "description": "Agent-First React Native Whitelabel CLI",
+  "type": "module",
+  "main": "src/init.js",
+  "bin": {
+    "capo": "./src/cli.js"
+  },
+  "scripts": {
+    "start": "node src/init.js"
+  },
+  "dependencies": {
+    "chalk": "^5.3.0",
+    "inquirer": "^9.2.16"
+  }
+}

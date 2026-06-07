@@ -1,0 +1,271 @@
+# This file contains the fastlane.tools configuration
+# You can find the documentation at https://docs.fastlane.tools
+#
+# For a list of all available actions, check out
+#
+#     https://docs.fastlane.tools/actions
+#
+# For a list of all available plugins, check out
+#
+#     https://docs.fastlane.tools/plugins/available-plugins
+#
+
+# Uncomment the line if you want fastlane to automatically update itself
+# update_fastlane
+
+default_platform(:ios)
+
+platform :ios do
+  before_all do |lane, options|
+    ['APP_IDENTIFIER', 'APPLE_ID', 'FASTLANE_USER', 'GIT_USER_NAME', 'GIT_USER_PASSWORD', 'ISSUER_ID', 'KEY_ID', 'MATCH_KEYCHAIN_NAME', 'RELEASE_TYPE'].each do |env_var|
+      unless ENV[env_var]
+        UI.error("Variável de ambiente #{env_var} não está definida")
+        abort("Abortando execução devido à falta de uma variável necessária.")
+      end
+    end
+
+    puts "APP_IDENTIFIER: #{ENV['APP_IDENTIFIER']}"
+    puts "APPLE_ID: #{ENV['APPLE_ID']}"
+    puts "FASTLANE_USER: #{ENV['FASTLANE_USER']}"
+    puts "GIT_USER_NAME: #{ENV['GIT_USER_NAME']}"
+    puts "GIT_USER_PASSWORD: #{ENV['GIT_USER_PASSWORD']}"
+    puts "ISSUER_ID: #{ENV['ISSUER_ID']}"
+    puts "KEY_ID: #{ENV['KEY_ID']}"
+    puts "TEAM_ID: #{ENV['TEAM_ID']}"
+    puts "MATCH_KEYCHAIN_NAME: #{ENV['MATCH_KEYCHAIN_NAME']}"
+    puts "RELEASE_TYPE: #{ENV['RELEASE_TYPE']}"
+
+    # Usa variável de ambiente para repositório GIT de certificados, se existir, senão usa um placeholder (que pode precisar de ajuste)
+    ENV['GIT_URL'] = ENV['GIT_CERTS_URL'] || "git@repository.com:organization/project_certs.git"
+  
+    if ENV['RELEASE_TYPE'] == 'pipeline'
+      xcode_path = ENV['XCODE_PATH_FROM_YAML']
+
+      if xcode_path && !xcode_path.empty?
+        UI.message("Using Xcode path from YAML: #{xcode_path}")
+        xcode_select(xcode_path)
+      else
+        UI.user_error!("XCODE_PATH_FROM_YAML environment variable not set!")
+      end
+
+      derived_data_path = File.expand_path('/Users/runner/Library/Developer/Xcode/DerivedData')
+      ENV['DERIVED_DATA_PATH'] = derived_data_path
+    else
+      derived_data_path = File.expand_path('~/Library/Developer/Xcode/DerivedData')
+      ENV['DERIVED_DATA_PATH'] = derived_data_path
+    end
+
+    FileUtils.mkdir_p(ENV['DERIVED_DATA_PATH'])
+  end
+
+  team_keyfile = {
+    "key_filepath" => "./fastlane/keys/AuthKey_#{ENV['KEY_ID']}.p8",
+  }
+
+  lane :init_keychain do
+    delete_keychain(
+      name: ENV["MATCH_KEYCHAIN_NAME"]
+    ) if File.exist?(File.expand_path("~/Library/Keychains/#{ENV['MATCH_KEYCHAIN_NAME']}-db"))
+
+    create_keychain(
+      name: ENV["MATCH_KEYCHAIN_NAME"],
+      default_keychain: false,
+      unlock: true,
+      timeout: 3600,
+      add_to_search_list: true,
+      password: ENV['RELEASE_TYPE'] == 'pipeline' ? ENV["MATCH_KEYCHAIN_PASSWORD"]: "",
+    )
+
+    unlock_keychain(
+      path: ENV["MATCH_KEYCHAIN_NAME"],
+      password: ENV['RELEASE_TYPE'] == 'pipeline' ? ENV["MATCH_KEYCHAIN_PASSWORD"]: "",
+    )
+
+    sh "security list-keychains -s #{ENV['MATCH_KEYCHAIN_NAME']}"
+  end
+
+  lane :fetch_certificates do |options|
+    # Como usar?
+    # - Via Pipeline: bundle exec fastlane fetch_certificates brand:<brand>
+    # - Localmente: bundle exec fastlane fetch_certificates brand:<brand> --env local.<brand>
+    brand = options[:brand] || 'default'
+    branch = "master"
+    app_id = ENV["APP_IDENTIFIER"]
+
+    storage_config = {
+      git_url: ENV['GIT_URL'],
+      git_branch: branch,
+      shallow_clone: true,
+      clone_branch_directly: true
+    }
+
+    match(
+      storage_config.merge(
+        type: "appstore",
+        app_identifier: app_id,
+        team_id: ENV["TEAM_ID"],
+        keychain_name: ENV["MATCH_KEYCHAIN_NAME"],
+        readonly: true,
+        include_all_certificates: true,
+        force_for_new_certificates: true,
+        verbose: true
+      )
+    )
+
+    match(
+      storage_config.merge(
+        type: "development",
+        app_identifier: app_id,
+        team_id: ENV["TEAM_ID"],
+        keychain_name: ENV["MATCH_KEYCHAIN_NAME"],
+        readonly: true,
+        include_all_certificates: true,
+        force_for_new_certificates: true,
+        verbose: true
+      )
+    )
+  end
+
+  lane :setup_app do |options|
+     # Como usar?
+     # - Via Pipeline: bundle exec fastlane setup_app brand:<brand> scheme:<dev | prod>
+     # - Localmente: bundle exec fastlane setup_app brand:<brand> scheme:<dev | prod> --env local.<brand>
+    brand = options[:brand] || 'default'
+    scheme = options[:scheme] || 'dev'
+    
+    sh "../../cli/execute.sh --platform=ios --action=release --brand=#{brand} --iosEnv=#{scheme} --releaseType=#{ENV['RELEASE_TYPE']}"
+  end
+
+  lane :build_app_bundle do |options|
+    # Como usar?
+    # - Via Pipeline: fastlane build_app_bundle brand:<brand> scheme:<dev | prod>
+    # - Localmente: bundle exec fastlane build_app_bundle brand:<brand> scheme:<dev | prod> --env local.<brand>
+    
+    brand = options[:brand] || 'default'
+    brand_capitalized = brand.capitalize()
+    scheme = options[:scheme] || 'dev'
+    scheme_capitalized = scheme.capitalize()
+  
+    workspace = brand == "default" ? "baseApp.xcworkspace" : "baseApp#{brand_capitalized}.xcworkspace"
+  
+    config = team_keyfile.merge({
+      "key_id" => ENV["KEY_ID"],
+      "issuer_id" => ENV["ISSUER_ID"],
+      "app_identifier" => ENV["APP_IDENTIFIER"],
+      "apple_id" => ENV["APPLE_ID"]
+    })
+  
+    app_id = config["app_identifier"]
+  
+    UI.message("Building #{brand} app with scheme #{brand}#{scheme_capitalized}...")
+
+    build_app(
+      scheme: "#{brand}#{scheme_capitalized}",
+      export_method: "app-store",
+      workspace: workspace,
+      configuration: "Release",
+      export_options: {
+        export_team_id: ENV["TEAM_ID"],
+        provisioningProfiles: {
+          app_id => "match AppStore #{app_id}",
+        }
+      },
+      xcargs: "-allowProvisioningUpdates -UseModernBuildSystem=YES -showBuildTimingSummary -verbose",
+      xcodebuild_formatter: 'xcbeautify',
+      derived_data_path: ENV['DERIVED_DATA_PATH'],
+      build_timing_summary: true,
+      use_system_scm: true,
+    )
+  end
+
+  lane :testflight_release do |options|
+    # Como usar?
+    # - Via Pipeline: bundle exec fastlane testflight_release brand:<brand>
+    # - Localmente: bundle exec fastlane testflight_release brand:<brand> --env local.<brand>
+    brand = options[:brand] || 'default'
+
+    config = team_keyfile.merge({
+      "key_id" => ENV["KEY_ID"],
+      "issuer_id" => ENV["ISSUER_ID"],
+      "app_identifier" => ENV["APP_IDENTIFIER"],
+      "apple_id" => ENV["APPLE_ID"]
+    })
+
+    api_key = app_store_connect_api_key(
+      key_id: config["key_id"],
+      issuer_id: config["issuer_id"],
+      key_filepath: config["key_filepath"],
+    )
+
+    upload_to_testflight(
+      api_key: api_key,
+      app_identifier: config["app_identifier"],
+      apple_id: config["apple_id"],
+      skip_waiting_for_build_processing: true,
+      verbose: true
+    )
+  end
+
+  # ====================================================================================
+  # LANES DE GERENCIAMENTO DE CERTIFICADOS
+  # ====================================================================================
+
+  lane :generate_certificates do |options|
+    brand = options[:brand] || 'default'
+    branch = "master"
+    app_id = ENV["APP_IDENTIFIER"]
+
+    UI.important("Gerando perfil de provisionamento para o app '#{app_id}' para '#{brand}'...")
+
+    match(
+      type: "appstore",
+      app_identifier: app_id,
+      team_id: ENV["TEAM_ID"],
+      git_branch: branch,
+      force: true,
+      git_url: ENV['GIT_URL'],
+      include_all_certificates: true,
+      verbose: true
+    )
+
+    match(
+      type: "development",
+      app_identifier: app_id,
+      team_id: ENV["TEAM_ID"],
+      git_branch: branch,
+      force: true,
+      git_url: ENV['GIT_URL'],
+      include_all_certificates: true,
+      verbose: true
+    )
+    
+    UI.success("Perfil para '#{app_id}' gerado com sucesso!")
+  end
+
+
+  lane :nuke_group_certificates do |options|
+    brand = options[:brand] || 'default'
+    branch = "master"
+
+    UI.important("!! ATENÇÃO !! Iniciando Nuke completo...")
+    UI.message("TODOS os certificados e perfis (AppStore e Development) serão revogados e apagados.")
+
+    match_nuke(
+      type: "appstore",
+      team_id: ENV["TEAM_ID"],
+      git_branch: branch,
+      git_url: ENV['GIT_URL']
+    )
+
+    match_nuke(
+      type: "development",
+      team_id: ENV["TEAM_ID"],
+      git_branch: branch,
+      git_url: ENV['GIT_URL']
+    )
+
+    UI.success("Nuke completo concluído.")
+    UI.message("Agora, gere os certificados individualmente para cada app (com a lane 'generate_certificates').")
+  end
+
+end

@@ -1,0 +1,139 @@
+# This file contains the fastlane.tools configuration
+# You can find the documentation at https://docs.fastlane.tools
+#
+# For a list of all available actions, check out
+#
+#     https://docs.fastlane.tools/actions
+#
+# For a list of all available plugins, check out
+#
+#     https://docs.fastlane.tools/plugins/available-plugins
+#
+
+# Uncomment the line if you want fastlane to automatically update itself
+# update_fastlane
+
+google_play_config_dev = {
+  "default" => {
+    package_name: "com.baseapp.app",
+    json_key: "./baseApp-default-dev-key.json"
+  }
+}
+
+google_play_config_prod = {
+  "default" => {
+    package_name: "com.baseapp.app",
+    json_key: "./baseApp-default-prod-key.json"
+  }
+}
+
+default_platform(:android)
+
+platform :android do
+  lane :setup_app do |options|
+    # Como usar?
+    # - Via Pipeline: fastlane setup_app brand:<brand>
+    # - Localmente: bundle exec fastlane setup_app brand:<brand> mode:<dev | prod> --env local.<brand>
+    brand = options[:brand] || 'default'
+    mode = options[:mode] || 'dev'
+
+    sh "../../cli/execute.sh --platform=android --action=release --brand=#{brand} --androidEnv=#{mode} --releaseType=#{ENV['RELEASE_TYPE']}"
+  end
+
+  lane :build_app_bundle do |options|
+    # Como usar?
+    # - Via Pipeline: fastlane build_app_bundle brand:<brand>
+    # - Localmente: bundle exec fastlane build_app_bundle brand:<brand> mode:<dev | prod> --env local.<brand>
+    brand = options[:brand] || 'default'
+    mode = options[:mode] || 'dev'
+    brand_capitalized = brand.capitalize()
+    mode_capitalized = mode.capitalize()
+
+    variant_mode = mode == 'dev' ? 'DevRelease' : 'ProdRelease'
+    variant = brand == 'default' ? "#{variant_mode}" : "#{brand_capitalized}#{variant_mode}"
+
+    gradle(
+      task: "bundle#{variant}",
+      properties: {
+        "brand" => brand,
+        "MYAPP_RELEASE_KEY_ALIAS" => options[:key_alias],
+        "MYAPP_RELEASE_KEY_PASSWORD" => options[:key_password],
+        "MYAPP_RELEASE_STORE_FILE" => options[:store_file],
+        "MYAPP_RELEASE_STORE_PASSWORD" => options[:store_password]
+      }
+    )
+  end
+
+  lane :build_apk do |options|
+    # Como usar?
+    # - Via Pipeline: fastlane build_apk brand:<brand> mode:<dev | prod>
+    # - Localmente: bundle exec fastlane build_apk brand:<brand> mode:<dev | prod> --env local.<brand>
+    brand = options[:brand] || 'default'
+    mode = options[:mode] || 'dev'
+    brand_capitalized = brand.capitalize()
+    mode_capitalized = mode.capitalize()
+  
+    variant_mode = mode == 'dev' ? 'DevDebug' : 'ProdRelease'
+    variant = brand == 'default' ? variant_mode : "#{brand_capitalized}#{variant_mode}"
+  
+    gradle(
+      task: "assemble#{variant}",
+      properties: {
+        "brand" => brand,
+        "MYAPP_RELEASE_KEY_ALIAS" => options[:key_alias],
+        "MYAPP_RELEASE_KEY_PASSWORD" => options[:key_password],
+        "MYAPP_RELEASE_STORE_FILE" => options[:store_file],
+        "MYAPP_RELEASE_STORE_PASSWORD" => options[:store_password]
+      }
+    )
+
+    output_folder = brand == 'default' ? mode : "#{brand}#{mode_capitalized}"
+    apk_output_dir = "../app/build/outputs/apk/#{output_folder}/debug"
+  
+    apk_file = Dir[File.expand_path(apk_output_dir, __dir__) + "/*.apk"].first
+    if apk_file
+      new_name = "#{brand_capitalized}baseApp#{mode_capitalized}_#{Time.now.strftime('%Y%m%d%H%M%S')}.apk"
+      File.rename(apk_file, "#{File.dirname(apk_file)}/#{new_name}")
+      UI.success("APK gerado com sucesso: #{File.dirname(apk_file)}/#{new_name}")
+    else
+      UI.user_error!("APK não encontrado no diretório esperado: #{File.expand_path(apk_output_dir, __dir__)}")
+    end
+  end
+
+  lane :deploy_beta do |options|
+    # Como usar?
+    # - Via Pipeline: fastlane deploy_beta brand:<brand>
+    # - Localmente: bundle exec fastlane deploy_beta brand:<brand> mode:<dev | prod> --env local.<brand>
+    brand = options[:brand] || 'default'
+    mode = options[:mode] || 'dev'
+
+    brand_capitalized = brand.capitalize()
+    mode_capitalized = mode.capitalize()
+
+    google_play_config = mode == 'dev' ? google_play_config_dev : google_play_config_prod
+    group = google_play_config[brand]
+
+    if brand == 'default'
+      output_folder = mode == 'dev' ? 'devRelease' : 'prodRelease'
+    else
+      output_folder = mode == 'dev' ? "#{brand_capitalized}DevRelease" : "#{brand_capitalized}ProdRelease"
+    end
+
+    destination_folder = "app/build/outputs/bundle/#{output_folder}"
+    aab_file = brand == 'default' ? "app-#{mode}-release.aab" : "app-#{brand}#{mode_capitalized}-release.aab"
+
+    UI.message("Deploying to Google Play - Track: Beta")
+
+    upload_to_play_store(
+      track: 'internal',
+      json_key: group[:json_key],
+      package_name: group[:package_name],
+      aab: "#{destination_folder}/#{aab_file}",
+      skip_upload_metadata: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true,
+      skip_upload_apk: true,
+      skip_upload_changelogs: true
+    )
+  end
+end
