@@ -423,3 +423,8 @@ git commit -m "chore: initial commit (Greenfield Initialization & Deep Rename)"
 cd ..
 
 echo "Scaffolding complete for ${PROJECT_NAME} (Brand: ${INITIAL_BRAND})."
+
+# 6. Flush Watchman to prevent Metro bundler ghost caching
+echo "Flushing Watchman cache..."
+watchman watch-del-all >/dev/null 2>&1 || true
+echo "Run 'npm start -- --reset-cache' if Metro hangs!"
