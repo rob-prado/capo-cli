@@ -15,7 +15,7 @@ const __dirname = path.dirname(__filename)
  * @param {string} initialBrand - The validated initial brand name.
  * @throws {Error} If the bash script fails to spawn or exits with a non-zero code.
  */
-function runScaffoldScript(projectName, initialBrand) {
+function runScaffoldScript(projectName, initialBrand, configJson) {
   const scriptPath = path.resolve(__dirname, '../../scripts/init.sh')
   console.log(
     chalk.blue(
@@ -26,6 +26,7 @@ function runScaffoldScript(projectName, initialBrand) {
   const result = spawnSync('bash', [scriptPath, projectName, initialBrand], {
     stdio: 'inherit',
     encoding: 'utf-8',
+    env: { ...process.env, BRAND_CONFIG_JSON: configJson },
   })
 
   if (result.error) {
@@ -86,8 +87,50 @@ export default {
       process.exit(1)
     }
 
+    let { bundleId, primaryColor } = args
+
+    if (!bundleId) {
+      const answers = await inquirer.prompt([
+        {
+          type: 'input',
+          name: 'bundleId',
+          message: 'Enter the initial bundle ID (e.g., com.example.app):',
+          default: `com.example.${initialBrand.toLowerCase()}`,
+        },
+      ])
+      bundleId = answers.bundleId
+    }
+
+    if (!primaryColor) {
+      const answers = await inquirer.prompt([
+        {
+          type: 'input',
+          name: 'primaryColor',
+          message: 'Enter the initial primary color (hex, e.g., #FFFFFF):',
+          default: '#FFFFFF',
+        },
+      ])
+      primaryColor = answers.primaryColor
+    }
+
+    const brandConfig = {
+      [initialBrand]: {
+        bundleId,
+        primaryColor,
+        android: {
+          versionName: '1.0.0',
+          versionCode: 1,
+        },
+        ios: {
+          versionNumber: '1.0.0',
+          buildNumber: 1,
+        },
+      },
+    }
+    const configJson = JSON.stringify(brandConfig, null, 2)
+
     try {
-      runScaffoldScript(projectName, initialBrand)
+      runScaffoldScript(projectName, initialBrand, configJson)
       console.log(
         chalk.green.bold('\nWorkflow `init-project` completed successfully.'),
       )
