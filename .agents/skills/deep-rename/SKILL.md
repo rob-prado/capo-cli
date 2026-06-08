@@ -21,19 +21,16 @@ The script targets the `android/` directory and performs two operations:
 
 ## Mutated iOS Artifacts
 The script targets the `ios/` directory and handles complex Xcode namespace mutations:
-1. **Regex String Replacement:** Safely replaces the old brand string inside:
+1. **Regex String Replacement:** Safely replaces the old brand string globally inside:
    - `*.pbxproj` (The core Xcode project structure map)
-   - `Info.plist`
-   - `Podfile`
-   - `*.xcscheme` (Xcode Schemes)
-   - `AppDelegate.*`
-   - `*.plist`
-   - `*.json`
-2. **Directory Structure Re-mapping:** Safely renames crucial project directories and workspaces:
-   - `ios/<OldBrand>` -> `ios/<NewBrand>`
-   - `ios/<OldBrand>.xcodeproj` -> `ios/<NewBrand>.xcodeproj`
-   - `ios/<OldBrand>.xcworkspace` -> `ios/<NewBrand>.xcworkspace`
-   - `ios/<NewBrand>.xcodeproj/xcshareddata/xcschemes/<OldBrand>.xcscheme` -> `ios/<NewBrand>.xcodeproj/xcshareddata/xcschemes/<NewBrand>.xcscheme`
+   - `Info.plist`, `Podfile`, `*.xcscheme` (Xcode Schemes), `AppDelegate.*`
+   - `*.plist`, `*.json`, `*.xcworkspacedata`
+   - iOS Source Files: `*.h`, `*.m`, `*.mm`, `*.swift`, `*.cpp`
+2. **Directory Structure Re-mapping:** Safely renames crucial project directories and workspaces using a dynamic bottom-up approach (`find -depth`) that targets any file or directory containing the `OLD_BRAND`. This avoids breaking file paths during execution. Re-mapped artifacts include:
+   - Project directory: `ios/<OldBrand>` -> `ios/<NewBrand>`
+   - Workspaces/Projects: `ios/<OldBrand>.xcodeproj`, `ios/<OldBrand>.xcworkspace`
+   - Schemes: `ios/<NewBrand>.xcodeproj/xcshareddata/xcschemes/<OldBrand>.xcscheme`
+   - Caches and dependencies like `Pods` and `build` are strictly excluded from renaming.
 
 ## Root Artifacts & Staging
 - Mutates root identifiers in `app.json` and `package.json`.

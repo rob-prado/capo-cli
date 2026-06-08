@@ -5,8 +5,8 @@ When building an Agent-First React Native CLI, we faced a major architectural hu
 
 ## Decision
 We decided to strictly split the architecture into two distinct environments:
-1. **Node.js (Orchestrator):** Exclusively handles terminal UI (Inquirer), prompt routing, and JSON configuration injection.
-2. **Bash (Executor):** Exclusively handles native filesystem mutations.
+1. **Node.js (Orchestrator/UX):** Exclusively handles terminal UI (Inquirer), prompt routing, JSON configuration injection, asynchronous state polling (e.g., waiting for Metro /status), dependency validation (e.g., enforcing iOS Pod synchronization), and OS-level terminal spawning via AppleScript.
+2. **Bash (Executor):** Exclusively handles native filesystem mutations, regex deep-renaming, and targeted structural shifts across the Android/iOS directories.
 
 ## Rationale
 - Parsing `.pbxproj` or complex XML natively in Node.js requires massive third-party dependencies (like `xcode` or xml parsers) that are highly fragile and prone to breaking during React Native version updates.
