@@ -41,6 +41,65 @@ function applyBrand(cwd, targetBrand, oldBrand) {
 }
 
 /**
+ * Installs iOS Pods.
+ *
+ * @param {string} cwd - The current working directory.
+ */
+function installPods(cwd) {
+  console.log(chalk.blue(`\n[Orchestrator] Synchronizing iOS Pods...`))
+
+  if (process.env.DRY_RUN) {
+    console.log(
+      chalk.yellow(
+        `[Dry Run] Would execute: bundle install && bundle exec pod install`,
+      ),
+    )
+    return
+  }
+
+  const iosPath = path.join(cwd, 'ios')
+
+  if (!fs.existsSync(iosPath)) {
+    console.warn(
+      chalk.yellow(`[Orchestrator] Warning: 'ios' directory not found.`),
+    )
+    return
+  }
+
+  // Attempt bundle install
+  spawnSync('bundle', ['install'], {
+    stdio: 'inherit',
+    encoding: 'utf-8',
+    cwd: iosPath,
+  })
+
+  // Attempt pod install
+  let result = spawnSync('bundle', ['exec', 'pod', 'install'], {
+    stdio: 'inherit',
+    encoding: 'utf-8',
+    cwd: iosPath,
+  })
+
+  // Fallback if bundle exec pod fails
+  if (result.error || result.status !== 0) {
+    console.log(
+      chalk.yellow(
+        `[Orchestrator] 'bundle exec pod install' failed or missing. Falling back to 'pod install'...`,
+      ),
+    )
+    result = spawnSync('pod', ['install'], {
+      stdio: 'inherit',
+      encoding: 'utf-8',
+      cwd: iosPath,
+    })
+
+    if (result.error || result.status !== 0) {
+      throw new Error(`Failed to install iOS Pods.`)
+    }
+  }
+}
+
+/**
  * Runs the React Native application.
  *
  * @param {string} cwd - The current working directory.
@@ -209,6 +268,20 @@ export default {
             `[Dry Run] Would apply brand: ${brandName} replacing ${oldBrand}`,
           ),
         )
+      }
+
+      // Ensure Pods are installed for iOS if missing or brand changed
+      if (platform === 'ios') {
+        const podsExist = fs.existsSync(path.join(cwd, 'ios', 'Pods'))
+        if (!podsExist || brandName !== oldBrand) {
+          installPods(cwd)
+        } else {
+          console.log(
+            chalk.blue(
+              `\n[Orchestrator] iOS Pods exist and brand is unchanged. Skipping pod install.`,
+            ),
+          )
+        }
       }
 
       // Delegation 2: Build & Run
