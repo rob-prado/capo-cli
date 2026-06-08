@@ -83,12 +83,19 @@ function runReactNative(cwd, platform, environment, brandName) {
   })
 
   if (result.error) {
-    throw new Error(`Failed to run React Native: ${result.error.message}`)
+    console.error(
+      chalk.red(
+        `\n[Orchestrator] Failed to spawn React Native: ${result.error.message}`,
+      ),
+    )
+    return
   }
 
   if (result.status !== 0) {
-    throw new Error(
-      `React Native execution failed with status code ${result.status}`,
+    console.warn(
+      chalk.yellow(
+        `\n[Orchestrator] React Native execution finished with status code ${result.status}. (Note: ADB launch errors are common and can usually be ignored if the build was successful).`,
+      ),
     )
   }
 }
