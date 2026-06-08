@@ -100,6 +100,46 @@ function installPods(cwd) {
 }
 
 /**
+ * Kills any process occupying the given port and clears Metro cache.
+ *
+ * @param {number} port - The port to clear.
+ */
+function killPortAndClearCache(port) {
+  console.log(
+    chalk.yellow(
+      `\n[Orchestrator] Ensuring port ${port} is free and Metro cache is clear...`,
+    ),
+  )
+  try {
+    const lsof = spawnSync('lsof', ['-t', `-i:${port}`], { encoding: 'utf-8' })
+    if (lsof.stdout) {
+      const pids = lsof.stdout.trim().split('\n').filter(Boolean)
+      if (pids.length > 0) {
+        console.log(
+          chalk.yellow(
+            `[Orchestrator] Killing stale processes on port ${port}: ${pids.join(
+              ', ',
+            )}`,
+          ),
+        )
+        for (const pid of pids) {
+          spawnSync('kill', ['-9', pid])
+        }
+      }
+    }
+  } catch (err) {
+    // Ignore lsof errors
+  }
+
+  try {
+    const tmpDir = process.env.TMPDIR || '/tmp'
+    spawnSync('bash', ['-c', `rm -rf ${path.join(tmpDir, 'metro-*')}`])
+  } catch (err) {
+    // Ignore
+  }
+}
+
+/**
  * Runs the React Native application.
  *
  * @param {string} cwd - The current working directory.
@@ -303,12 +343,16 @@ export default {
             `\n[Orchestrator] Launching both Android (Port 8081) and iOS (Port 8082) in parallel...`,
           ),
         )
+        killPortAndClearCache(8081)
+        killPortAndClearCache(8082)
         await Promise.all([
           runReactNative(cwd, 'android', environment, brandName, 8081),
           runReactNative(cwd, 'ios', environment, brandName, 8082),
         ])
       } else {
-        await runReactNative(cwd, platform, environment, brandName)
+        const port = platform === 'ios' ? 8082 : 8081
+        killPortAndClearCache(port)
+        await runReactNative(cwd, platform, environment, brandName, port)
       }
 
       console.log(
