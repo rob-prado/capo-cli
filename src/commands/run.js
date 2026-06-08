@@ -272,13 +272,21 @@ export default {
 
       // Ensure Pods are installed for iOS if missing or brand changed
       if (platform === 'ios') {
-        const podsExist = fs.existsSync(path.join(cwd, 'ios', 'Pods'))
-        if (!podsExist || brandName !== oldBrand) {
+        const targetSupportPath = path.join(
+          cwd,
+          'ios',
+          'Pods',
+          'Target Support Files',
+          `Pods-${brandName}`,
+        )
+        const podsExistForBrand = fs.existsSync(targetSupportPath)
+
+        if (!podsExistForBrand || brandName !== oldBrand) {
           installPods(cwd)
         } else {
           console.log(
             chalk.blue(
-              `\n[Orchestrator] iOS Pods exist and brand is unchanged. Skipping pod install.`,
+              `\n[Orchestrator] iOS Pods exist and are synced for brand '${brandName}'. Skipping pod install.`,
             ),
           )
         }
