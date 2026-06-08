@@ -42,6 +42,15 @@ EOF
     echo "Created brand version configuration at ${BRAND_VERSION_JSON}"
 fi
 
+# Create brand-specific environment files if they don't exist
+for env in dev staging prd; do
+    ENV_FILE="${TARGET_DIR}/.env.${BRAND_NAME}.${env}"
+    if [ ! -f "${ENV_FILE}" ]; then
+        touch "${ENV_FILE}"
+        echo "Created empty environment file: ${ENV_FILE}"
+    fi
+done
+
 # Mutate template placeholders
 echo "Mutating template placeholders..."
 export PROJECT="${PROJECT_NAME}"
