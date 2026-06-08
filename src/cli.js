@@ -62,19 +62,39 @@ async function runCLI() {
     // STRICTLY filter out the `init` command
     const availableCommands = allCommands.filter((cmd) => cmd.name !== 'init')
 
+    if (availableCommands.length === 0) {
+      console.log(chalk.yellow('No actions available for this context.'))
+      process.exit(0)
+    }
+
     let action = args.action
 
-    if (!action) {
-      if (availableCommands.length === 0) {
-        console.log(chalk.yellow('No actions available for this context.'))
-        process.exit(0)
+    if (action) {
+      // Non-interactive mode (action passed via args)
+      const targetCommand = availableCommands.find((cmd) => cmd.name === action)
+
+      if (!targetCommand) {
+        console.error(
+          chalk.red(
+            `\nUnknown or unavailable action selected for this context: ${action}`,
+          ),
+        )
+        process.exit(1)
       }
 
-      // Dynamically construct Inquirer choices from the loaded commands
+      await targetCommand.run(args)
+      return
+    }
+
+    // Interactive mode: Loop until the user chooses to quit
+    while (true) {
       const choices = availableCommands.map((cmd) => ({
         name: chalk.green(cmd.description),
         value: cmd.name,
       }))
+
+      choices.push(new inquirer.Separator())
+      choices.push({ name: chalk.red('Quit'), value: 'quit' })
 
       const answer = await inquirer.prompt([
         {
@@ -84,23 +104,24 @@ async function runCLI() {
           choices,
         },
       ])
-      action = answer.action
-    }
 
-    // Lookup the selected command
-    const targetCommand = availableCommands.find((cmd) => cmd.name === action)
+      if (answer.action === 'quit') {
+        console.log(chalk.cyan('Goodbye!'))
+        process.exit(0)
+      }
 
-    if (!targetCommand) {
-      console.error(
-        chalk.red(
-          `\nUnknown or unavailable action selected for this context: ${action}`,
-        ),
+      const targetCommand = availableCommands.find(
+        (cmd) => cmd.name === answer.action,
       )
-      process.exit(1)
-    }
 
-    // Execute the command's dynamic run function, passing the parsed args
-    await targetCommand.run(args)
+      if (!targetCommand) {
+        console.error(chalk.red(`\nUnknown action: ${answer.action}`))
+        continue
+      }
+
+      await targetCommand.run(args)
+      console.log('\n') // Add some spacing before next prompt
+    }
   } catch (error) {
     console.error(chalk.red(`\nCLI Error: ${error.message}`))
     process.exit(1)

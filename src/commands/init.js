@@ -1,9 +1,10 @@
 import { spawnSync } from 'child_process'
 import path from 'path'
 import { fileURLToPath } from 'url'
-import inquirer from 'inquirer'
+
 import chalk from 'chalk'
 import { isValidProjectName, isValidBrand } from '../utils/validators.js'
+import { runWizard } from '../utils/wizard.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -44,15 +45,42 @@ export default {
   run: async (args) => {
     console.log(chalk.green('\n--- Initializing Greenfield Project ---'))
 
-    let { projectName, initialBrand } = args
+    let projectName = args.projectName
+    let initialBrand = args.initialBrand
+    let bundleId = args.bundleId
+    let primaryColor = args.primaryColor
+
+    // Pre-flight check for CLI args
+    if (projectName) {
+      if (isValidProjectName(projectName) !== true) {
+        console.error(
+          chalk.red(
+            'Fatal: Invalid projectName. Must be alphanumeric and underscores only.',
+          ),
+        )
+        process.exit(1)
+      }
+    }
+
+    if (initialBrand) {
+      if (isValidBrand(initialBrand) !== true) {
+        console.error(
+          chalk.red('Fatal: Invalid initialBrand. Must be alphanumeric only.'),
+        )
+        process.exit(1)
+      }
+    }
 
     const prompts = []
+
     if (!projectName) {
       prompts.push({
         type: 'input',
         name: 'projectName',
         message: 'Enter the project name:',
-        validate: isValidProjectName,
+        validate: (input) => {
+          return isValidProjectName(input)
+        },
       })
     }
     if (!initialBrand) {
@@ -60,57 +88,39 @@ export default {
         type: 'input',
         name: 'initialBrand',
         message: 'Enter the initial brand name:',
-        validate: isValidBrand,
+        validate: (input) => {
+          return isValidBrand(input)
+        },
+      })
+    }
+
+    if (!bundleId) {
+      prompts.push({
+        type: 'input',
+        name: 'bundleId',
+        message: 'Enter the initial bundle ID (e.g., com.example.app):',
+        default: (answers) =>
+          `com.example.${(answers.initialBrand || initialBrand || 'app').toLowerCase()}`,
+      })
+    }
+
+    if (!primaryColor) {
+      prompts.push({
+        type: 'input',
+        name: 'primaryColor',
+        message: 'Enter the initial primary color (hex, e.g., #FFFFFF):',
+        default: '#FFFFFF',
       })
     }
 
     if (prompts.length > 0) {
-      const answers = await inquirer.prompt(prompts)
+      const answers = await runWizard(prompts)
+      if (!answers) return
+
       if (!projectName) projectName = answers.projectName
       if (!initialBrand) initialBrand = answers.initialBrand
-    }
-
-    // Validate inputs
-    if (isValidProjectName(projectName) !== true) {
-      console.error(
-        chalk.red(
-          'Fatal: Invalid projectName. Must be alphanumeric and underscores only.',
-        ),
-      )
-      process.exit(1)
-    }
-
-    if (isValidBrand(initialBrand) !== true) {
-      console.error(
-        chalk.red('Fatal: Invalid initialBrand. Must be alphanumeric only.'),
-      )
-      process.exit(1)
-    }
-
-    let { bundleId, primaryColor } = args
-
-    if (!bundleId) {
-      const answers = await inquirer.prompt([
-        {
-          type: 'input',
-          name: 'bundleId',
-          message: 'Enter the initial bundle ID (e.g., com.example.app):',
-          default: `com.example.${initialBrand.toLowerCase()}`,
-        },
-      ])
-      bundleId = answers.bundleId
-    }
-
-    if (!primaryColor) {
-      const answers = await inquirer.prompt([
-        {
-          type: 'input',
-          name: 'primaryColor',
-          message: 'Enter the initial primary color (hex, e.g., #FFFFFF):',
-          default: '#FFFFFF',
-        },
-      ])
-      primaryColor = answers.primaryColor
+      if (!bundleId) bundleId = answers.bundleId
+      if (!primaryColor) primaryColor = answers.primaryColor
     }
 
     const brandConfig = {

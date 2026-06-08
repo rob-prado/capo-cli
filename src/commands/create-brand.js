@@ -1,10 +1,11 @@
 import fs from 'fs'
 import path from 'path'
 import { spawnSync } from 'child_process'
-import inquirer from 'inquirer'
+
 import chalk from 'chalk'
 import { fileURLToPath } from 'url'
 import { isValidBrand } from '../utils/validators.js'
+import { runWizard } from '../utils/wizard.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -57,63 +58,73 @@ export default {
     }
 
     let finalBrand = args.brandName
+    let bundleId = args.bundleId
+    let primaryColor = args.primaryColor
 
-    // Interactive Prompt if missing
-    if (!finalBrand) {
-      const answers = await inquirer.prompt([
-        {
-          type: 'input',
-          name: 'newBrand',
-          message: 'Enter the new brand name:',
-          validate: isValidBrand,
-        },
-      ])
-      finalBrand = answers.newBrand
-    } else {
-      // Validate CLI arg
+    const brandsData = JSON.parse(fs.readFileSync(brandsJsonPath, 'utf8'))
+
+    // Pre-flight check for CLI args
+    if (finalBrand) {
       if (isValidBrand(finalBrand) !== true) {
         console.error(
           chalk.red('Fatal: Invalid brand name. Must be alphanumeric only.'),
         )
         process.exit(1)
       }
+      if (brandsData.brands.includes(finalBrand)) {
+        console.error(
+          chalk.red(
+            `Fatal: Brand '${finalBrand}' already exists in brands.json.`,
+          ),
+        )
+        process.exit(1)
+      }
     }
 
-    // Pre-flight check: Prevent overwriting existing brands
-    const brandsData = JSON.parse(fs.readFileSync(brandsJsonPath, 'utf8'))
-    if (brandsData.brands.includes(finalBrand)) {
-      console.error(
-        chalk.red(
-          `Fatal: Brand '${finalBrand}' already exists in brands.json.`,
-        ),
-      )
-      process.exit(1)
+    const prompts = []
+
+    // Interactive Prompt if missing
+    if (!finalBrand) {
+      prompts.push({
+        type: 'input',
+        name: 'brandName',
+        message: 'Enter the new brand name:',
+        validate: (input) => {
+          const res = isValidBrand(input)
+          if (res !== true) return res
+          if (brandsData.brands.includes(input))
+            return `Brand '${input}' already exists.`
+          return true
+        },
+      })
     }
 
-    let bundleId = args.bundleId
     if (!bundleId) {
-      const answers = await inquirer.prompt([
-        {
-          type: 'input',
-          name: 'bundleId',
-          message: 'Enter the bundle ID (e.g., com.example.brand):',
-          default: `com.example.${finalBrand.toLowerCase()}`,
-        },
-      ])
-      bundleId = answers.bundleId
+      prompts.push({
+        type: 'input',
+        name: 'bundleId',
+        message: 'Enter the bundle ID (e.g., com.example.brand):',
+        default: (answers) =>
+          `com.example.${(answers.brandName || finalBrand || 'brand').toLowerCase()}`,
+      })
     }
 
-    let primaryColor = args.primaryColor
     if (!primaryColor) {
-      const answers = await inquirer.prompt([
-        {
-          type: 'input',
-          name: 'primaryColor',
-          message: 'Enter the primary color (hex, e.g., #FFFFFF):',
-          default: '#FFFFFF',
-        },
-      ])
-      primaryColor = answers.primaryColor
+      prompts.push({
+        type: 'input',
+        name: 'primaryColor',
+        message: 'Enter the primary color (hex, e.g., #FFFFFF):',
+        default: '#FFFFFF',
+      })
+    }
+
+    if (prompts.length > 0) {
+      const answers = await runWizard(prompts)
+      if (!answers) return
+
+      if (!finalBrand) finalBrand = answers.brandName
+      if (!bundleId) bundleId = answers.bundleId
+      if (!primaryColor) primaryColor = answers.primaryColor
     }
 
     const brandConfig = {

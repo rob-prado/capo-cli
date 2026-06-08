@@ -2,9 +2,10 @@ import { spawn, spawnSync } from 'child_process'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import fs from 'fs'
-import inquirer from 'inquirer'
+
 import chalk from 'chalk'
 import http from 'http'
+import { runWizard } from '../utils/wizard.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -463,7 +464,9 @@ export default {
     }
 
     if (prompts.length > 0) {
-      const answers = await inquirer.prompt(prompts)
+      const answers = await runWizard(prompts)
+      if (!answers) return
+
       if (!brandName || !availableBrands.includes(brandName))
         brandName = answers.brandName
       if (!platform || !['android', 'ios', 'both'].includes(platform))
