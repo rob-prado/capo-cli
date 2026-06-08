@@ -244,8 +244,16 @@ function launchMetroInNewWindow(cwd, port) {
  * @param {string} environment - 'dev', 'staging', or 'prd'.
  * @param {string} brandName - The active brand name.
  * @param {number} [port] - Optional specific Metro port to run on.
+ * @param {boolean} [inNewWindow] - Whether to launch in a new terminal window.
  */
-function runReactNative(cwd, platform, environment, brandName, port) {
+function runReactNative(
+  cwd,
+  platform,
+  environment,
+  brandName,
+  port,
+  inNewWindow = false,
+) {
   const portDisplay = port ? ` on Port ${port}` : ''
   console.log(
     chalk.blue(
@@ -314,17 +322,33 @@ function runReactNative(cwd, platform, environment, brandName, port) {
   }
 
   return new Promise((resolve, reject) => {
+    const childEnv = { ...process.env }
+
+    // Pass dynamic Metro port via environment to bypass standard caching mechanisms
+    if (port) {
+      childEnv.RCT_METRO_PORT = port.toString()
+    }
+
+    if (inNewWindow) {
+      const safeCwd = cwd.replace(/"/g, '\\"')
+      let envVars = ''
+      if (port) envVars += `export RCT_METRO_PORT=${port} && `
+      const fullCommand = `cd \\"${safeCwd}\\" && ${envVars}${command} ${args.join(' ')}`
+      const appleScript = `
+        tell application "Terminal"
+          do script "${fullCommand}"
+        end tell
+      `
+      spawnSync('osascript', ['-e', appleScript])
+      return resolve()
+    }
+
     // DRY-RUN MOCK INJECTION: If DRY_RUN env is set, just print the command
     if (process.env.DRY_RUN) {
       console.log(
         chalk.yellow(`[Dry Run] Would execute: ${command} ${args.join(' ')}`),
       )
       return resolve()
-    }
-
-    const childEnv = { ...process.env }
-    if (port) {
-      childEnv.RCT_METRO_PORT = port.toString()
     }
 
     const child = spawn(command, args, { cwd, env: childEnv })
@@ -504,8 +528,8 @@ export default {
         await Promise.all([waitForMetro(8081), waitForMetro(8082)])
 
         await Promise.all([
-          runReactNative(cwd, 'android', environment, brandName, 8081),
-          runReactNative(cwd, 'ios', environment, brandName, 8082),
+          runReactNative(cwd, 'android', environment, brandName, 8081, true),
+          runReactNative(cwd, 'ios', environment, brandName, 8082, true),
         ])
       } else {
         const port = platform === 'ios' ? 8082 : 8081
