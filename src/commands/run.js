@@ -4,6 +4,7 @@ import { fileURLToPath } from 'url'
 import fs from 'fs'
 import inquirer from 'inquirer'
 import chalk from 'chalk'
+import http from 'http'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -140,6 +141,102 @@ function killPortAndClearCache(port) {
 }
 
 /**
+ * Polls the Metro bundler status endpoint until it is fully operational.
+ *
+ * @param {number} port - The port Metro is running on.
+ * @returns {Promise<void>}
+ */
+function waitForMetro(port) {
+  return new Promise((resolve) => {
+    let retries = 0
+    const interval = setInterval(() => {
+      retries++
+      if (retries > 60) {
+        clearInterval(interval)
+        console.warn(
+          chalk.yellow(
+            `\n[Orchestrator] Warning: Metro on port ${port} did not respond within 60 seconds. Proceeding anyway.`,
+          ),
+        )
+        resolve()
+        return
+      }
+
+      const req = http.get(`http://127.0.0.1:${port}/status`, (res) => {
+        let data = ''
+        res.on('data', (chunk) => {
+          data += chunk
+        })
+        res.on('end', () => {
+          if (data === 'packager-status:running') {
+            clearInterval(interval)
+            console.log(
+              chalk.green(
+                `[Orchestrator] Metro on port ${port} is fully operational!`,
+              ),
+            )
+            resolve()
+          }
+        })
+      })
+
+      req.on('error', () => {
+        // Expected if it hasn't started yet
+      })
+    }, 1000)
+  })
+}
+
+/**
+ * Launches the Metro bundler in a new Terminal window for the specified port.
+ *
+ * @param {string} cwd - The current working directory.
+ * @param {number} port - The port to start Metro on.
+ */
+function launchMetroInNewWindow(cwd, port) {
+  console.log(
+    chalk.magenta(
+      `\n[Orchestrator] Launching Metro Bundler on port ${port} in a new terminal window...`,
+    ),
+  )
+
+  if (process.env.DRY_RUN) {
+    console.log(
+      chalk.yellow(
+        `[Dry Run] Would launch Metro in new window on port ${port}`,
+      ),
+    )
+    return
+  }
+
+  const safeCwd = cwd.replace(/"/g, '\\"')
+  const command = `cd \\"${safeCwd}\\" && export RCT_METRO_PORT=${port} && npx react-native start --port=${port} --reset-cache`
+  const appleScript = `
+    tell application "Terminal"
+      do script "${command}"
+      activate
+    end tell
+  `
+
+  try {
+    const res = spawnSync('osascript', ['-e', appleScript])
+    if (res.status !== 0) {
+      console.warn(
+        chalk.yellow(
+          `[Orchestrator] Warning: Failed to open new terminal window. AppleScript error: ${res.stderr ? res.stderr.toString().trim() : 'Unknown'}`,
+        ),
+      )
+    }
+  } catch (err) {
+    console.warn(
+      chalk.yellow(
+        `[Orchestrator] Warning: Failed to execute osascript automatically.`,
+      ),
+    )
+  }
+}
+
+/**
  * Runs the React Native application.
  *
  * @param {string} cwd - The current working directory.
@@ -162,13 +259,58 @@ function runReactNative(cwd, platform, environment, brandName, port) {
   if (platform === 'android') {
     args.push('run-android')
     args.push(`--mode=${environment}Debug`)
+    if (environment !== 'prd') {
+      args.push(`--appIdSuffix=${environment}`)
+    }
+    args.push('--no-packager')
     if (port) args.push(`--port=${port}`)
   } else if (platform === 'ios') {
     args.push('run-ios')
     // Map environment to scheme (Assuming Dev and Prod are the standard generated schemes)
     const schemeSuffix = environment === 'dev' ? 'Dev' : 'Prod'
     args.push(`--scheme=${brandName}${schemeSuffix}`)
-    if (port) args.push(`--port=${port}`)
+    args.push('--no-packager')
+    if (port) {
+      args.push(`--port=${port}`)
+      // Force Xcode build phases to recognize the dynamic port
+      const xcodeEnvLocalPath = path.join(cwd, 'ios', '.xcode.env.local')
+      fs.writeFileSync(
+        xcodeEnvLocalPath,
+        `export RCT_METRO_PORT=${port}\n`,
+        'utf8',
+      )
+
+      // Force iOS Swift AppDelegate to accept the dynamic port natively, bypassing C++ caching limitations
+      const appDelegatePath = path.join(
+        cwd,
+        'ios',
+        brandName,
+        'AppDelegate.swift',
+      )
+      if (fs.existsSync(appDelegatePath)) {
+        let content = fs.readFileSync(appDelegatePath, 'utf8')
+
+        // Sanitize: Revert to default if already patched in a previous run (with or without ?)
+        content = content.replace(
+          /let provider = RCTBundleURLProvider\.sharedSettings\(\)\n\s+provider\?\.jsLocation = "127\.0\.0\.1:\d+"\n\s+return provider\?\.jsBundleURL\(forBundleRoot: "index"\)/g,
+          'RCTBundleURLProvider.sharedSettings().jsBundleURL(forBundleRoot: "index")',
+        )
+        content = content.replace(
+          /let provider = RCTBundleURLProvider\.sharedSettings\(\)\n\s+provider\.jsLocation = "127\.0\.0\.1:\d+"\n\s+return provider\.jsBundleURL\(forBundleRoot: "index"\)/g,
+          'RCTBundleURLProvider.sharedSettings().jsBundleURL(forBundleRoot: "index")',
+        )
+
+        // Inject if port is non-standard
+        if (port !== 8081) {
+          const target =
+            'RCTBundleURLProvider.sharedSettings().jsBundleURL(forBundleRoot: "index")'
+          const replacement = `let provider = RCTBundleURLProvider.sharedSettings()\n    provider.jsLocation = "127.0.0.1:${port}"\n    return provider.jsBundleURL(forBundleRoot: "index")`
+          content = content.replace(target, replacement)
+        }
+
+        fs.writeFileSync(appDelegatePath, content, 'utf8')
+      }
+    }
   }
 
   return new Promise((resolve, reject) => {
@@ -180,7 +322,12 @@ function runReactNative(cwd, platform, environment, brandName, port) {
       return resolve()
     }
 
-    const child = spawn(command, args, { cwd })
+    const childEnv = { ...process.env }
+    if (port) {
+      childEnv.RCT_METRO_PORT = port.toString()
+    }
+
+    const child = spawn(command, args, { cwd, env: childEnv })
     let buildFailed = false
 
     child.stdout.on('data', (data) => {
@@ -345,6 +492,17 @@ export default {
         )
         killPortAndClearCache(8081)
         killPortAndClearCache(8082)
+
+        launchMetroInNewWindow(cwd, 8081)
+        launchMetroInNewWindow(cwd, 8082)
+
+        console.log(
+          chalk.magenta(
+            `\n[Orchestrator] Waiting for Metro instances to initialize...`,
+          ),
+        )
+        await Promise.all([waitForMetro(8081), waitForMetro(8082)])
+
         await Promise.all([
           runReactNative(cwd, 'android', environment, brandName, 8081),
           runReactNative(cwd, 'ios', environment, brandName, 8082),
@@ -352,6 +510,13 @@ export default {
       } else {
         const port = platform === 'ios' ? 8082 : 8081
         killPortAndClearCache(port)
+
+        launchMetroInNewWindow(cwd, port)
+        console.log(
+          chalk.magenta(`\n[Orchestrator] Waiting for Metro to initialize...`),
+        )
+        await waitForMetro(port)
+
         await runReactNative(cwd, platform, environment, brandName, port)
       }
 
