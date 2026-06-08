@@ -14,11 +14,22 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BRAND_CONFIG_DIR="${TARGET_DIR}/src/config/brands/${BRAND_NAME}"
 BRANDS_JSON="${TARGET_DIR}/brands.json"
 
-# 1. Generate Splash
+# 1. Extract Primary Color from Config
+PRIMARY_COLOR=$(node -e "
+const fs = require('fs');
+try {
+  const config = JSON.parse(fs.readFileSync('${BRAND_CONFIG_DIR}/config.json', 'utf8'));
+  console.log(config['${BRAND_NAME}'].primaryColor || '#FFFFFF');
+} catch(e) {
+  console.log('#FFFFFF');
+}
+")
+
+# 2. Generate Splash
 LOGO_PATH="${BRAND_CONFIG_DIR}/images/logo/logo.png"
 if [ -f "${LOGO_PATH}" ]; then
-    echo "Triggering Bootsplash generation for ${BRAND_NAME}..."
-    bash "${SCRIPT_DIR}/../generate-splash.sh" "$TARGET_DIR" "$BRAND_NAME" "$LOGO_PATH" "#FFFFFF" "dev" "staging" "prd"
+    echo "Triggering Bootsplash generation for ${BRAND_NAME} with primary color ${PRIMARY_COLOR}..."
+    bash "${SCRIPT_DIR}/../generate-splash.sh" "$TARGET_DIR" "$BRAND_NAME" "$LOGO_PATH" "${PRIMARY_COLOR}" "dev" "staging" "prd"
 else
     echo "Warning: Logo not found at ${LOGO_PATH}. Skipping bootsplash generation."
 fi
@@ -48,7 +59,7 @@ const App = () => {
   return (
     <SafeAreaProvider>
       <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
-        <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+        <StatusBar barStyle="light-content" backgroundColor="${PRIMARY_COLOR}" />
         <View style={styles.header}>
           <Image 
             source={require('./src/config/brands/${BRAND_NAME}/images/logo/logo.png')} 
@@ -71,7 +82,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 20,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '${PRIMARY_COLOR}',
     borderBottomWidth: 1,
     borderBottomColor: '#E9ECEF',
     shadowColor: '#000',
@@ -81,7 +92,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   logo: { width: 45, height: 45, marginRight: 15 },
-  brandName: { fontSize: 24, fontWeight: 'bold', color: '#212529' },
+  brandName: { fontSize: 24, fontWeight: 'bold', color: '#FFFFFF' },
   content: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
   welcomeText: { fontSize: 18, color: '#6C757D', textAlign: 'center' }
 });
