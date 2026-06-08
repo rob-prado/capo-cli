@@ -113,4 +113,12 @@ fi
 
 echo "[Deep Rename] Root artifacts updated successfully."
 
+echo "[Deep Rename] Staging mutated files in Git..."
+if [ -d "${TARGET_DIR}/.git" ]; then
+    (cd "${TARGET_DIR}" && git add .)
+    echo "[Deep Rename] Files staged successfully."
+else
+    echo "[Deep Rename] Warning: Not a git repository. Skipping staging."
+fi
+
 echo "[Deep Rename] Universal Deep Rename completed! Native brand is now '${NEW_BRAND}'."
