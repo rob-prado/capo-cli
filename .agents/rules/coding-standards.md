@@ -3,6 +3,7 @@
 This codebase enforces strict automated and manual coding standards. All agents MUST abide by the following:
 
 ## JavaScript
+- **Style:** Strict functional JS style must be adhered to. Prefer immutability and pure functions. Avoid side effects where possible.
 - **Modules:** Use ES Modules strictly (`import` and `export`). No `require()` unless dynamically necessary.
 - **Formatting:** Prettier will actively strip semicolons. Strictly DO NOT use semicolons (`semi: false`).
 - **Quotes:** Use single quotes for strings unless dealing with JSON or string interpolation.
