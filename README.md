@@ -15,8 +15,8 @@ Welcome to **Capo CLI**, a highly automated, idempotent framework designed to fl
 
 Capo CLI strictly enforces a **"Dual Architecture"** pattern to balance interaction and execution:
 
-1. **Node.js Orchestrator:** Handles user interactions, prompt routing, business logic flow, and JSON configuration parsing through an interactive CLI.
-2. **Bash Executor:** Reaches deep into the underlying Android and iOS project layers to execute raw, resilient filesystem mutations natively—avoiding the fragility of complex JavaScript filesystem manipulation.
+1. **Node.js Orchestrator (Command Loader):** Uses a highly scalable dynamic Command Loader pattern (`src/commands/`). It handles user interactions, prompt routing, validation, and execution delegation seamlessly.
+2. **Bash Executor (Core Modules):** Reaches deep into the underlying Android and iOS project layers to execute raw, resilient filesystem mutations natively. Logic is strictly abstracted using DRY principles across core modules like `scaffold-brand-assets.sh` and `apply-active-brand.sh`.
 
 ## 🚀 Getting Started
 
@@ -44,20 +44,24 @@ npm start
 ```
 Alternatively, execute the CLI entry point directly:
 ```bash
-./src/cli.js
+capo --action=init
 ```
 
 ## 🛠️ Usage
 
-### `init-project <projectName> <initialBrand>`
+Capo CLI dynamically loads commands from `src/commands/`.
 
-This foundational command will scaffold an entirely new React Native project. It performs a "Deep Rename" universally across all iOS namespaces, Xcode schemes, and Android Java package structures. It actively configures multiple environment flavors (`dev`, `staging`, `prd`) natively, synchronizes your environment variables, and safely generates bootsplash splash screens into a temporary sandbox.
-
-**Example:**
+### `init`
 ```bash
-# Handled interactively by running the CLI
-npm start
+capo --action=init --projectName=<Name> --initialBrand=<Brand>
 ```
+This foundational command will scaffold an entirely new React Native project. It performs a "Deep Rename" universally across all iOS namespaces, Xcode schemes, and Android Java package structures. It actively configures multiple environment flavors natively and distributes the initial brand configurations.
+
+### `create-brand`
+```bash
+capo --action=create-brand --brandName=<Brand>
+```
+Creates and automatically activates a new brand inside an existing project. It safely clones base templates, stages brand resources, overrides the current active brand identifiers dynamically using `deep-rename.sh`, and safely distributes iOS and Android assets (like Firebase/AppIcons) into the core native directories.
 
 ---
 *Generated autonomously under Agent-First Protocol directives.*
