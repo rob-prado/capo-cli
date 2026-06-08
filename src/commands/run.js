@@ -1,4 +1,4 @@
-import { spawnSync } from 'child_process'
+import { spawn, spawnSync } from 'child_process'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import fs from 'fs'
@@ -68,36 +68,65 @@ function runReactNative(cwd, platform, environment, brandName) {
     args.push(`--scheme=${brandName}${schemeSuffix}`)
   }
 
-  // DRY-RUN MOCK INJECTION: If DRY_RUN env is set, just print the command
-  if (process.env.DRY_RUN) {
-    console.log(
-      chalk.yellow(`[Dry Run] Would execute: ${command} ${args.join(' ')}`),
-    )
-    return
-  }
+  return new Promise((resolve, reject) => {
+    // DRY-RUN MOCK INJECTION: If DRY_RUN env is set, just print the command
+    if (process.env.DRY_RUN) {
+      console.log(
+        chalk.yellow(`[Dry Run] Would execute: ${command} ${args.join(' ')}`),
+      )
+      return resolve()
+    }
 
-  const result = spawnSync(command, args, {
-    stdio: 'inherit',
-    encoding: 'utf-8',
-    cwd,
+    const child = spawn(command, args, { cwd })
+    let buildFailed = false
+
+    child.stdout.on('data', (data) => {
+      process.stdout.write(data)
+      const output = data.toString()
+      if (
+        output.includes('BUILD FAILED') ||
+        output.includes('Failed to build ios project') ||
+        output.includes('xcodebuild" exited with error code')
+      ) {
+        buildFailed = true
+      }
+    })
+
+    child.stderr.on('data', (data) => {
+      process.stderr.write(data)
+      const output = data.toString()
+      if (
+        output.includes('BUILD FAILED') ||
+        output.includes('Failed to build ios project') ||
+        output.includes('xcodebuild" exited with error code')
+      ) {
+        buildFailed = true
+      }
+    })
+
+    child.on('error', (error) => {
+      reject(new Error(`Failed to spawn React Native: ${error.message}`))
+    })
+
+    child.on('close', (code) => {
+      if (code !== 0) {
+        if (buildFailed) {
+          reject(
+            new Error(`React Native build failed with status code ${code}`),
+          )
+        } else {
+          console.warn(
+            chalk.yellow(
+              `\n[Orchestrator] React Native execution finished with status code ${code}. (Note: ADB/Simulator launch errors are common and ignored since the build did not fail).`,
+            ),
+          )
+          resolve()
+        }
+      } else {
+        resolve()
+      }
+    })
   })
-
-  if (result.error) {
-    console.error(
-      chalk.red(
-        `\n[Orchestrator] Failed to spawn React Native: ${result.error.message}`,
-      ),
-    )
-    return
-  }
-
-  if (result.status !== 0) {
-    console.warn(
-      chalk.yellow(
-        `\n[Orchestrator] React Native execution finished with status code ${result.status}. (Note: ADB launch errors are common and can usually be ignored if the build was successful).`,
-      ),
-    )
-  }
 }
 
 export default {
@@ -183,7 +212,7 @@ export default {
       }
 
       // Delegation 2: Build & Run
-      runReactNative(cwd, platform, environment, brandName)
+      await runReactNative(cwd, platform, environment, brandName)
 
       console.log(
         chalk.green.bold(`\nWorkflow \`run\` completed successfully.`),
