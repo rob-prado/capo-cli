@@ -21,7 +21,10 @@ cp -R -n "${TEMPLATES_DIR}/base/." "${BRAND_CONFIG_DIR}/" 2>/dev/null || true
 # Initialize per-brand version configuration
 BRAND_VERSION_JSON="${BRAND_CONFIG_DIR}/config.json"
 if [ ! -f "${BRAND_VERSION_JSON}" ]; then
-    cat <<EOF >"${BRAND_VERSION_JSON}"
+    if [[ -n "${BRAND_CONFIG_JSON:-}" ]]; then
+        echo "$BRAND_CONFIG_JSON" >"${BRAND_VERSION_JSON}"
+    else
+        cat <<EOF >"${BRAND_VERSION_JSON}"
 {
   "${BRAND_NAME}": {
     "android": {
@@ -35,6 +38,7 @@ if [ ! -f "${BRAND_VERSION_JSON}" ]; then
   }
 }
 EOF
+    fi
     echo "Created brand version configuration at ${BRAND_VERSION_JSON}"
 fi
 
