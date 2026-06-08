@@ -22,3 +22,4 @@ The system operates on the **"JS Orchestrator vs. Bash Executor"** pattern:
 ## Universal Directives
 - Universal Deep Rename is mandatory for all projects; no shielding for "mature" projects.
 - Agents must prioritize generating plans before executing mutations.
+- **Isolated Testing:** Agents MUST NEVER run CLI mutation tests inside existing user projects. All validations must be executed in an ephemeral, isolated temporary directory generated via `mktemp -d`.

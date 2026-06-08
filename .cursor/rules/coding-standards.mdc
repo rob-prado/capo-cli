@@ -11,3 +11,4 @@ globs: ["src/**/*.js", "scripts/**/*.sh"]
 - **Bash & Shell Scripts:** `set -euo pipefail` is ABSOLUTELY MANDATORY at the top of every script to ensure strict execution constraints.
 - **Regex Mutations:** Always use `perl -pi -e` for regex file mutations. NEVER use `sed` due to severe macOS vs. Linux cross-platform inconsistencies with the `-i` flag.
 - **Formatting:** Scripts must follow `shfmt` conventions (4 spaces).
+- **Testing Validation:** Agents MUST NOT run CLI mutations in real workspace directories. Use `mktemp -d` to create isolated ephemeral environments for testing `init`, `create-brand`, etc.
