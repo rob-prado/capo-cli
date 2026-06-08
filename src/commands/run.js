@@ -106,11 +106,13 @@ function installPods(cwd) {
  * @param {string} platform - 'android' or 'ios'.
  * @param {string} environment - 'dev', 'staging', or 'prd'.
  * @param {string} brandName - The active brand name.
+ * @param {number} [port] - Optional specific Metro port to run on.
  */
-function runReactNative(cwd, platform, environment, brandName) {
+function runReactNative(cwd, platform, environment, brandName, port) {
+  const portDisplay = port ? ` on Port ${port}` : ''
   console.log(
     chalk.blue(
-      `\n[Orchestrator] Running React Native on ${platform.toUpperCase()} (${environment.toUpperCase()})...`,
+      `\n[Orchestrator] Running React Native on ${platform.toUpperCase()} (${environment.toUpperCase()})${portDisplay}...`,
     ),
   )
 
@@ -120,11 +122,13 @@ function runReactNative(cwd, platform, environment, brandName) {
   if (platform === 'android') {
     args.push('run-android')
     args.push(`--mode=${environment}Debug`)
+    if (port) args.push(`--port=${port}`)
   } else if (platform === 'ios') {
     args.push('run-ios')
     // Map environment to scheme (Assuming Dev and Prod are the standard generated schemes)
     const schemeSuffix = environment === 'dev' ? 'Dev' : 'Prod'
     args.push(`--scheme=${brandName}${schemeSuffix}`)
+    if (port) args.push(`--port=${port}`)
   }
 
   return new Promise((resolve, reject) => {
@@ -229,12 +233,12 @@ export default {
       })
     }
 
-    if (!platform || !['android', 'ios'].includes(platform)) {
+    if (!platform || !['android', 'ios', 'both'].includes(platform)) {
       prompts.push({
         type: 'list',
         name: 'platform',
         message: 'Select the platform:',
-        choices: ['android', 'ios'],
+        choices: ['android', 'ios', 'both'],
       })
     }
 
@@ -251,7 +255,7 @@ export default {
       const answers = await inquirer.prompt(prompts)
       if (!brandName || !availableBrands.includes(brandName))
         brandName = answers.brandName
-      if (!platform || !['android', 'ios'].includes(platform))
+      if (!platform || !['android', 'ios', 'both'].includes(platform))
         platform = answers.platform
       if (!environment || !['dev', 'staging', 'prd'].includes(environment))
         environment = answers.environment
@@ -271,7 +275,7 @@ export default {
       }
 
       // Ensure Pods are installed for iOS if missing or brand changed
-      if (platform === 'ios') {
+      if (platform === 'ios' || platform === 'both') {
         const targetSupportPath = path.join(
           cwd,
           'ios',
@@ -293,7 +297,19 @@ export default {
       }
 
       // Delegation 2: Build & Run
-      await runReactNative(cwd, platform, environment, brandName)
+      if (platform === 'both') {
+        console.log(
+          chalk.magenta(
+            `\n[Orchestrator] Launching both Android (Port 8081) and iOS (Port 8082) in parallel...`,
+          ),
+        )
+        await Promise.all([
+          runReactNative(cwd, 'android', environment, brandName, 8081),
+          runReactNative(cwd, 'ios', environment, brandName, 8082),
+        ])
+      } else {
+        await runReactNative(cwd, platform, environment, brandName)
+      }
 
       console.log(
         chalk.green.bold(`\nWorkflow \`run\` completed successfully.`),
