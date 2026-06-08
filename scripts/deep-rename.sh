@@ -59,22 +59,18 @@ export NEW="${NEW_BRAND}"
 # 1. iOS Replacements
 echo "[Deep Rename] Processing iOS artifacts..."
 if [ -d "${TARGET_DIR}/ios" ]; then
-    # Target .pbxproj, Info.plist, Podfile, xcschemes, AppDelegate, and Firebase configs
-    find "${TARGET_DIR}/ios" -type f \( -name "*.pbxproj" -o -name "Info.plist" -o -name "Podfile" -o -name "*.xcscheme" -o -name "AppDelegate.*" -o -name "*.plist" -o -name "*.json" \) -exec perl -pi -e 's/\Q$ENV{OLD}\E/$ENV{NEW}/g' {} +
+    # Target .pbxproj, Info.plist, Podfile, xcschemes, AppDelegate, Firebase configs, and all source/workspace files
+    find "${TARGET_DIR}/ios" -type f \( -name "*.pbxproj" -o -name "Info.plist" -o -name "Podfile" -o -name "*.xcscheme" -o -name "AppDelegate.*" -o -name "*.plist" -o -name "*.json" -o -name "*.xcworkspacedata" -o -name "*.h" -o -name "*.m" -o -name "*.mm" -o -name "*.swift" -o -name "*.cpp" \) -not -path "*/Pods/*" -not -path "*/build/*" -exec perl -pi -e 's/\Q$ENV{OLD}\E/$ENV{NEW}/g' {} +
 
-    # Rename Directories and core project files
-    if [ -d "${TARGET_DIR}/ios/${OLD_BRAND}" ]; then
-        mv "${TARGET_DIR}/ios/${OLD_BRAND}" "${TARGET_DIR}/ios/${NEW_BRAND}"
-    fi
-    if [ -d "${TARGET_DIR}/ios/${OLD_BRAND}.xcodeproj" ]; then
-        mv "${TARGET_DIR}/ios/${OLD_BRAND}.xcodeproj" "${TARGET_DIR}/ios/${NEW_BRAND}.xcodeproj"
-    fi
-    if [ -d "${TARGET_DIR}/ios/${OLD_BRAND}.xcworkspace" ]; then
-        mv "${TARGET_DIR}/ios/${OLD_BRAND}.xcworkspace" "${TARGET_DIR}/ios/${NEW_BRAND}.xcworkspace"
-    fi
-    if [ -f "${TARGET_DIR}/ios/${NEW_BRAND}.xcodeproj/xcshareddata/xcschemes/${OLD_BRAND}.xcscheme" ]; then
-        mv "${TARGET_DIR}/ios/${NEW_BRAND}.xcodeproj/xcshareddata/xcschemes/${OLD_BRAND}.xcscheme" "${TARGET_DIR}/ios/${NEW_BRAND}.xcodeproj/xcshareddata/xcschemes/${NEW_BRAND}.xcscheme"
-    fi
+    # Rename all files and directories containing OLD_BRAND dynamically (bottom-up to avoid path breaking)
+    find "${TARGET_DIR}/ios" -depth -name "*${OLD_BRAND}*" -not -path "*/Pods/*" -not -path "*/build/*" | while read -r f; do
+        dir=$(dirname "$f")
+        base=$(basename "$f")
+        new_base="${base//$OLD_BRAND/$NEW_BRAND}"
+        if [ "$base" != "$new_base" ]; then
+            mv "$f" "$dir/$new_base"
+        fi
+    done
 
     echo "[Deep Rename] iOS artifacts updated successfully."
 else

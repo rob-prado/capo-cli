@@ -35,3 +35,42 @@ sequenceDiagram
     
     Command->>User: "Workflow Completed Successfully!"
 ```
+
+## Run Orchestrator (`run`)
+
+The `run` command operates at the boundary of JS and Bash. The JS Orchestrator actively manages async states, terminal spawning, and dependency validation before dispatching parallel builds.
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant RunJS as Node.js (run.js)
+    participant AppleScript as OS Terminal
+    participant ApplyBrand as Bash Core (apply-active-brand.sh)
+    
+    User->>RunJS: run `capo run both`
+    RunJS->>RunJS: Validate Environment & Active Brand
+    
+    opt Brand Changed
+        rect rgb(200, 220, 240)
+        Note over RunJS, ApplyBrand: Native Execution Boundary (Bash)
+        RunJS->>ApplyBrand: Apply New Brand Identifiers
+        ApplyBrand-->>RunJS: Native Application Complete
+        end
+    end
+
+    RunJS->>RunJS: Validate iOS Pods
+    opt Pods Missing or Brand Changed
+        RunJS->>RunJS: Execute `bundle exec pod install`
+    end
+
+    RunJS->>AppleScript: Launch Android Metro (Port 8081)
+    RunJS->>AppleScript: Launch iOS Metro (Port 8082)
+    
+    Note over RunJS: Async Polling for Metro /status
+    
+    RunJS->>AppleScript: Launch `run-android` (AppId Injection)
+    RunJS->>RunJS: Inject Port to `AppDelegate.swift`
+    RunJS->>AppleScript: Launch `run-ios`
+    
+    RunJS->>User: "Workflow `run` completed successfully"
+```

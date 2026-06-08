@@ -5,13 +5,14 @@ A robust CLI to manage Whitelabel React Native apps using an Agent-First approac
 
 ## Core Architecture
 The system operates on the **"JS Orchestrator vs. Bash Executor"** pattern:
-- **Node.js (Orchestration/UX):** Handles user interactions, prompt routing, business logic flow, and JSON configuration parsing dynamically through `src/commands/`.
-- **Bash (Native Filesystem Mutation):** Handles deep, heavy-lifting mutations to the underlying Android and iOS project files natively. All reusable mutation logic MUST be strictly decoupled using DRY principles into `scripts/core/` modules (e.g., `scaffold-brand-assets.sh` and `apply-active-brand.sh`). Top-level orchestrators (`init.sh`, `create-brand.sh`) defer to these core modules sequentially.
+- **Node.js (Orchestration/UX):** Handles user interactions, prompt routing, business logic flow, JSON configuration parsing dynamically, OS-level terminal spawning (`osascript`), dependency validation (e.g. CocoaPods sync), and asynchronous process polling through `src/commands/`.
+- **Bash (Native Filesystem Mutation):** Handles deep, heavy-lifting mutations to the underlying Android and iOS project files natively via regex. All reusable mutation logic MUST be strictly decoupled using DRY principles into `scripts/core/` modules (e.g., `scaffold-brand-assets.sh` and `apply-active-brand.sh`). Top-level orchestrators (`init.sh`, `create-brand.sh`) defer to these core modules sequentially.
 
 ## The Invariants
 1. **Brand Agnosticism:** The main React Native project (`main` folder or root structure) MUST NEVER contain hardcoded brand logic. It must remain a pure base.
 2. **Idempotency:** All bash scripts and configuration mutators must be safe to rerun without breaking state or causing infinite recursion.
 3. **Sandbox Strategy:** Native asset generation (e.g., bootsplash images) MUST happen in a temporary sandbox. You must never pollute `android/app/src/main/res` or equivalent core structures with flavor-specific artifacts.
+4. **Port Isolation Strategy:** React Native packager instances MUST be dynamically isolated during parallel execution (e.g., 8081 for Android, 8082 for iOS). When native Xcode caching ignores dynamic JS variables, AST patching MUST be implemented (e.g., `AppDelegate.swift`) to enforce these physical ports at the hardware level before builds.
 
 ## Quality Gates
 - **Husky & lint-staged:** All code is guarded by a strict pre-commit hook.
