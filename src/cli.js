@@ -8,6 +8,7 @@
 import inquirer from 'inquirer'
 import chalk from 'chalk'
 import { loadCommands } from './commands/index.js'
+import { isCapoProject } from './utils/validators.js'
 
 /**
  * Parses command line arguments into an object of key-value pairs.
@@ -37,7 +38,29 @@ async function runCLI() {
 
   try {
     const args = parseArgs(process.argv.slice(2))
-    const availableCommands = await loadCommands()
+
+    // CONDITION A: Outside a project
+    if (!isCapoProject()) {
+      console.log(
+        chalk.yellow(
+          '\nNo Capo project detected in this directory. Starting initialization...',
+        ),
+      )
+      const allCommands = await loadCommands()
+      const initCommand = allCommands.find((cmd) => cmd.name === 'init')
+      if (initCommand) {
+        await initCommand.run(args)
+      } else {
+        console.error(chalk.red('Fatal: Init command not found.'))
+        process.exit(1)
+      }
+      return
+    }
+
+    // CONDITION B: Inside a project
+    const allCommands = await loadCommands()
+    // STRICTLY filter out the `init` command
+    const availableCommands = allCommands.filter((cmd) => cmd.name !== 'init')
 
     let action = args.action
 
