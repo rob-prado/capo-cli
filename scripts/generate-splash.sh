@@ -44,6 +44,18 @@ if [ -f "${MANIFEST}" ]; then
     cp "${MANIFEST}" "${BACKUP_DIR}/AndroidManifest.xml"
 fi
 
+IOS_PROJ_NAME=$(node -p "require('./app.json').name" 2>/dev/null || echo "baseApp")
+IOS_PROJ_DIR="ios/${IOS_PROJ_NAME}"
+PBXPROJ="ios/${IOS_PROJ_NAME}.xcodeproj/project.pbxproj"
+
+if [ -f "${PBXPROJ}" ]; then
+    cp "${PBXPROJ}" "${BACKUP_DIR}/project.pbxproj"
+fi
+
+if [ -f "${IOS_PROJ_DIR}/Info.plist" ]; then
+    cp "${IOS_PROJ_DIR}/Info.plist" "${BACKUP_DIR}/Info.plist"
+fi
+
 # Run bootsplash CLI using direct npx binary to avoid RN CLI missing node_modules warnings
 echo "Running react-native-bootsplash generation..."
 npx react-native-bootsplash generate "${ABS_LOGO_PATH}" --background "${BG_COLOR}" --logo-width 100 || true
@@ -106,15 +118,13 @@ if [ -d "${IOS_PROJ_DIR}" ]; then
         perl -pi -e 's/BootSplashBackground-[^"]*/LaunchScreenBackground/g' "${IOS_PROJ_DIR}/LaunchScreen.storyboard"
     fi
 
-    # 5. Patch Info.plist & project.pbxproj
-    if [ -f "${IOS_PROJ_DIR}/Info.plist" ]; then
-        perl -pi -e 's/BootSplash/LaunchScreen/g' "${IOS_PROJ_DIR}/Info.plist"
+    # 5. Restore original Info.plist & project.pbxproj to avoid duplicate references
+    if [ -f "${BACKUP_DIR}/Info.plist" ]; then
+        cp "${BACKUP_DIR}/Info.plist" "${IOS_PROJ_DIR}/Info.plist"
     fi
 
-    PBXPROJ="ios/${IOS_PROJ_NAME}.xcodeproj/project.pbxproj"
-    if [ -f "${PBXPROJ}" ]; then
-        perl -pi -e 's/BootSplash\.storyboard/LaunchScreen.storyboard/g' "${PBXPROJ}"
-        perl -pi -e 's/BootSplash/LaunchScreen/g' "${PBXPROJ}"
+    if [ -f "${BACKUP_DIR}/project.pbxproj" ]; then
+        cp "${BACKUP_DIR}/project.pbxproj" "${PBXPROJ}"
     fi
 fi
 

@@ -111,4 +111,17 @@ data.activeBrand = '${BRAND_NAME}';
 fs.writeFileSync(file, JSON.stringify(data, null, 2) + '\n');
 "
 
+# 5. Install iOS Pods if Brand Changed
+if [ "$BRAND_NAME" != "$OLD_BRAND" ]; then
+    echo "Brand changed from '$OLD_BRAND' to '$BRAND_NAME'. Installing iOS Pods..."
+    if [ -d "${TARGET_DIR}/ios" ]; then
+        cd "${TARGET_DIR}/ios"
+        bundle install || true
+        bundle exec pod install || pod install || true
+        cd ../../
+    fi
+else
+    echo "Brand remains '$BRAND_NAME'. Skipping iOS Pod installation."
+fi
+
 echo "Brand application phase complete."
