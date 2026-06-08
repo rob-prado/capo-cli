@@ -5,8 +5,6 @@
  * based on the user's current initialization state.
  */
 
-import fs from 'fs'
-import path from 'path'
 import inquirer from 'inquirer'
 import chalk from 'chalk'
 import { loadCommands } from './commands/index.js'
@@ -30,15 +28,6 @@ function parseArgs(args) {
 }
 
 /**
- * Checks if the current working directory is an initialized project.
- *
- * @returns {boolean} True if package.json exists.
- */
-function isProjectInitialized() {
-  return fs.existsSync(path.resolve(process.cwd(), 'package.json'))
-}
-
-/**
  * Initializes and runs the dynamic CLI orchestrator.
  *
  * @returns {Promise<void>}
@@ -48,13 +37,7 @@ async function runCLI() {
 
   try {
     const args = parseArgs(process.argv.slice(2))
-    const allCommands = await loadCommands()
-    const isInitialized = isProjectInitialized()
-
-    // Filter commands based on current directory context
-    const availableCommands = allCommands.filter(
-      (cmd) => cmd.requireInit === isInitialized,
-    )
+    const availableCommands = await loadCommands()
 
     let action = args.action
 

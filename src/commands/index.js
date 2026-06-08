@@ -8,7 +8,7 @@ const __dirname = path.dirname(__filename)
 /**
  * Dynamically loads all command modules from the src/commands directory.
  * Each module must default export the standard interface:
- * { name: string, description: string, requireInit: boolean, run: async function }
+ * { name: string, description: string, run: async function }
  *
  * @returns {Promise<Array<Object>>} List of registered commands.
  */

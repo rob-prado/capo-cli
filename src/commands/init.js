@@ -40,7 +40,6 @@ function runScaffoldScript(projectName, initialBrand) {
 export default {
   name: 'init',
   description: 'Initialize a new project',
-  requireInit: false,
   run: async (args) => {
     console.log(chalk.green('\n--- Initializing Greenfield Project ---'))
 

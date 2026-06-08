@@ -39,7 +39,6 @@ function runCreateBrandScript(brandName) {
 export default {
   name: 'create-brand',
   description: 'Create a new Brand',
-  requireInit: true,
   run: async (args) => {
     console.log(chalk.green('\n--- Creating New Brand ---'))
 

@@ -3,7 +3,6 @@ import chalk from 'chalk'
 export default {
   name: 'pack',
   description: 'Pack for distribution',
-  requireInit: true,
   run: async (args) => {
     console.log(
       chalk.yellow(
