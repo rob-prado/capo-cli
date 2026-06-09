@@ -5,7 +5,7 @@ A robust CLI to manage Whitelabel React Native apps using an Agent-First approac
 
 ## Core Architecture
 The system operates on the **"JS Orchestrator vs. Bash Executor"** pattern:
-- **Node.js (Orchestration/UX):** Handles user interactions, prompt routing, business logic flow, JSON configuration parsing dynamically, OS-level terminal spawning (`osascript`), dependency validation (e.g. CocoaPods sync), and asynchronous process polling through `src/commands/`.
+- **Node.js (Orchestration/UX):** Handles user interactions, interactive wizard navigation, prompt routing, business logic flow, JSON configuration parsing dynamically, OS-level terminal spawning (`osascript`), dependency validation (e.g. CocoaPods sync), and asynchronous process polling through `src/commands/`.
 - **Bash (Native Filesystem Mutation):** Handles deep, heavy-lifting mutations to the underlying Android and iOS project files natively via regex. All reusable mutation logic MUST be strictly decoupled using DRY principles into `scripts/core/` modules (e.g., `scaffold-brand-assets.sh` and `apply-active-brand.sh`). Top-level orchestrators (`init.sh`, `create-brand.sh`) defer to these core modules sequentially.
 
 ## The Invariants

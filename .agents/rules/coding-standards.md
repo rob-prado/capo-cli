@@ -12,6 +12,7 @@ This codebase enforces strict automated and manual coding standards. All agents 
 - **Formatting:** Prettier will actively strip semicolons. Strictly DO NOT use semicolons (`semi: false`).
 - **Quotes:** Use single quotes for strings unless dealing with JSON or string interpolation.
 - **Asynchronous Execution:** Always prefer `async/await` over raw `.then()` promises.
+- **CLI Prompts:** All interactive CLI prompts must use the reusable `runWizard` utility (`src/utils/wizard.js`) instead of raw `inquirer.prompt` to ensure consistent Back/Quit navigation.
 
 ## Bash & Shell Scripts
 - **Safety First:** `set -euo pipefail` is ABSOLUTELY MANDATORY at the top of every script to ensure strict execution constraints.

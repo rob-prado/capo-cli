@@ -17,7 +17,7 @@ sequenceDiagram
     
     User->>CLI: run `capo`
     CLI->>Command: Dynamically load & route command
-    Command->>User: Prompt & Validate Input
+    Command->>User: Wizard Utility (Prompt with Back/Quit)
     User-->>Command: Validated Arguments
     
     rect rgb(200, 220, 240)

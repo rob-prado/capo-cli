@@ -6,9 +6,11 @@ Based on `AGENTS.md`, this workflow adheres to the Hybrid Node.js/Bash architect
 ## Steps
 
 1. **Prompt for Inputs**
-   - Request the user to provide:
+   - Use the **Interactive Wizard Utility** (supports Back/Quit navigation) to request:
      - `projectName`
      - `initialBrand`
+     - `bundleId`
+     - `primaryColor`
 
 2. **Validate Inputs**
    - **ProjectName**: Must be alphanumeric with underscores only (`^[a-zA-Z0-9_]+$`).

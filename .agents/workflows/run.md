@@ -4,7 +4,7 @@
 To spin up the local development server and build the application natively for a specific flavor/environment, handling brand injection, port conflict resolution, and parallel execution automatically.
 
 ## Inputs/Flags
-- `[brand]`: The target brand to run (default: relies on interactive prompt).
+- `[brand]`: The target brand to run (default: relies on interactive Wizard prompt).
 - `--env <string>`: The target environment (`dev`, `staging`, `prd`). Default: `dev`.
 - `--platform <string>`: The target platform (`ios`, `android`, or `both`). Default: `both`.
 - `--port <number>`: Explicit Metro port override (e.g., `8082`).

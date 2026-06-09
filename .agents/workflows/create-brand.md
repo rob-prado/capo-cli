@@ -5,12 +5,14 @@ To safely scaffold, generate, and natively activate a new brand within an existi
 
 ## Inputs/Flags
 - `brandName`: The name of the new brand to be created.
+- `bundleId`: The target bundle identifier (e.g., com.example.brand).
+- `primaryColor`: The primary hex color for the new brand.
 
 ## Step-by-step Execution Flow
 1. **Pre-flight Checks (Node.js)**
    - Validates that the command is executed inside an initialized project (checks for `brands.json`).
    - Validates `brandName` format (alphanumeric only).
-   - If `brandName` is missing, prompts the user interactively.
+   - If inputs are missing, prompts the user interactively using the **Wizard Utility** (which supports Back/Quit navigation).
    - Checks `brands.json` to ensure the brand does not already exist.
 
 2. **Orchestration Delegation (Node.js -> Bash)**
