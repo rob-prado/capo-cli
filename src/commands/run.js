@@ -6,6 +6,7 @@ import fs from 'fs'
 import chalk from 'chalk'
 import http from 'http'
 import { runWizard } from '../utils/wizard.js'
+import { promptForDevice } from '../utils/device-manager.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -254,6 +255,7 @@ function runReactNative(
   brandName,
   port,
   inNewWindow = false,
+  deviceConfig = null,
 ) {
   const portDisplay = port ? ` on Port ${port}` : ''
   console.log(
@@ -273,12 +275,22 @@ function runReactNative(
     }
     args.push('--no-packager')
     if (port) args.push(`--port=${port}`)
+    if (deviceConfig && deviceConfig.type !== 'default' && deviceConfig.id) {
+      args.push(`--deviceId=${deviceConfig.id}`)
+    }
   } else if (platform === 'ios') {
     args.push('run-ios')
     // Map environment to scheme (Assuming Dev and Prod are the standard generated schemes)
     const schemeSuffix = environment === 'dev' ? 'Dev' : 'Prod'
     args.push(`--scheme=${brandName}${schemeSuffix}`)
     args.push('--no-packager')
+    if (deviceConfig && deviceConfig.type !== 'default' && deviceConfig.id) {
+      if (deviceConfig.type === 'simulator') {
+        args.push(`--simulator=${deviceConfig.id}`)
+      } else {
+        args.push(`--device=${deviceConfig.id}`)
+      }
+    }
     if (port) {
       args.push(`--port=${port}`)
       // Force Xcode build phases to recognize the dynamic port
@@ -475,6 +487,19 @@ export default {
         environment = answers.environment
     }
 
+    let androidDevice = null
+    let iosDevice = null
+
+    if (platform === 'android' || platform === 'both') {
+      androidDevice = await promptForDevice('android')
+      if (androidDevice === null) return // User cancelled or exited
+    }
+
+    if (platform === 'ios' || platform === 'both') {
+      iosDevice = await promptForDevice('ios')
+      if (iosDevice === null) return // User cancelled or exited
+    }
+
     try {
       // Delegation 1: Apply Brand (Only if different, though apply script handles idempotency somewhat)
       // Actually apply script should always run to ensure correct env/brand state if someone switched git branches
@@ -531,8 +556,24 @@ export default {
         await Promise.all([waitForMetro(8081), waitForMetro(8082)])
 
         await Promise.all([
-          runReactNative(cwd, 'android', environment, brandName, 8081, true),
-          runReactNative(cwd, 'ios', environment, brandName, 8082, true),
+          runReactNative(
+            cwd,
+            'android',
+            environment,
+            brandName,
+            8081,
+            true,
+            androidDevice,
+          ),
+          runReactNative(
+            cwd,
+            'ios',
+            environment,
+            brandName,
+            8082,
+            true,
+            iosDevice,
+          ),
         ])
       } else {
         const port = platform === 'ios' ? 8082 : 8081
@@ -544,7 +585,16 @@ export default {
         )
         await waitForMetro(port)
 
-        await runReactNative(cwd, platform, environment, brandName, port)
+        const selectedDevice = platform === 'ios' ? iosDevice : androidDevice
+        await runReactNative(
+          cwd,
+          platform,
+          environment,
+          brandName,
+          port,
+          false,
+          selectedDevice,
+        )
       }
 
       console.log(
