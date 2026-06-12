@@ -275,8 +275,8 @@ function runReactNative(
     }
     args.push('--no-packager')
     if (port) args.push(`--port=${port}`)
-    if (deviceConfig && deviceConfig.type !== 'default' && deviceConfig.id) {
-      args.push(`--deviceId=${deviceConfig.id}`)
+    if (deviceConfig && deviceConfig.id && deviceConfig.type !== 'default') {
+      args.push(`--device=${deviceConfig.id}`)
     }
   } else if (platform === 'ios') {
     args.push('run-ios')
