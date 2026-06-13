@@ -7,6 +7,7 @@ import chalk from 'chalk'
 import http from 'http'
 import { runWizard } from '../utils/wizard.js'
 import { ensureJavaVersion } from '../utils/env-checker.js'
+import { evaluateAndPrepareIOSDevice } from '../utils/ios-device-checker.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -444,19 +445,34 @@ async function runReactNativeWithRetry(
       return // Success
     } catch (error) {
       if (attempt === 1) {
-        console.warn(
-          chalk.yellow(
-            `\n[Self-Healing] Warning: ${platform.toUpperCase()} build failed. Triggering First Fallback (Clean Caches).`,
-          ),
-        )
-        const scriptPath = path.resolve(
-          __dirname,
-          '../../scripts/core/clean-build-env.sh',
-        )
-        spawnSync('bash', [scriptPath, platform], {
-          stdio: 'inherit',
-          encoding: 'utf-8',
-        })
+        let skipClean = false
+        if (platform === 'ios') {
+          const envPrepared = await evaluateAndPrepareIOSDevice()
+          if (envPrepared) {
+            console.warn(
+              chalk.yellow(
+                `\n[Self-Healing] iOS environment was missing. Skipping cache clean for this retry.`,
+              ),
+            )
+            skipClean = true
+          }
+        }
+
+        if (!skipClean) {
+          console.warn(
+            chalk.yellow(
+              `\n[Self-Healing] Warning: ${platform.toUpperCase()} build failed. Triggering First Fallback (Clean Caches).`,
+            ),
+          )
+          const scriptPath = path.resolve(
+            __dirname,
+            '../../scripts/core/clean-build-env.sh',
+          )
+          spawnSync('bash', [scriptPath, platform], {
+            stdio: 'inherit',
+            encoding: 'utf-8',
+          })
+        }
       } else if (attempt === 2) {
         console.warn(
           chalk.yellow(
