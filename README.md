@@ -34,6 +34,7 @@ Capo CLI strictly enforces a **"Dual Architecture"** pattern to ensure safety an
 ### Prerequisites
  * Node.js
  * npm or yarn
+ * **Java 17 (JDK 17)**: Strictly required for Android builds. We highly recommend using a version manager like `mise`, `jenv`, or `asdf` to manage your Java environment.
  * Standard React Native CLI environment setup (Android Studio, Xcode, CocoaPods)
 
 ### 🌍 Global Installation

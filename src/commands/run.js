@@ -6,6 +6,7 @@ import fs from 'fs'
 import chalk from 'chalk'
 import http from 'http'
 import { runWizard } from '../utils/wizard.js'
+import { ensureJavaVersion } from '../utils/env-checker.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -129,14 +130,14 @@ function killPortAndClearCache(port) {
         }
       }
     }
-  } catch (err) {
+  } catch {
     // Ignore lsof errors
   }
 
   try {
     const tmpDir = process.env.TMPDIR || '/tmp'
     spawnSync('bash', ['-c', `rm -rf ${path.join(tmpDir, 'metro-*')}`])
-  } catch (err) {
+  } catch {
     // Ignore
   }
 }
@@ -228,7 +229,7 @@ function launchMetroInNewWindow(cwd, port) {
         ),
       )
     }
-  } catch (err) {
+  } catch {
     console.warn(
       chalk.yellow(
         `[Orchestrator] Warning: Failed to execute osascript automatically.`,
@@ -404,6 +405,107 @@ function runReactNative(
   })
 }
 
+/**
+ * Wraps the runReactNative function with a self-healing retry loop.
+ *
+ * @param {string} cwd - The current working directory.
+ * @param {string} platform - 'android' or 'ios'.
+ * @param {string} environment - 'dev', 'staging', or 'prd'.
+ * @param {string} brandName - The active brand name.
+ * @param {number} [port] - Optional specific Metro port to run on.
+ * @param {boolean} [inNewWindow] - Whether to launch in a new terminal window.
+ */
+async function runReactNativeWithRetry(
+  cwd,
+  platform,
+  environment,
+  brandName,
+  port,
+  inNewWindow = false,
+) {
+  let attempt = 1
+  while (attempt <= 3) {
+    try {
+      if (attempt > 1) {
+        console.log(
+          chalk.blue(
+            `\n[Orchestrator] Retrying React Native execution on ${platform.toUpperCase()} (Attempt ${attempt}/3)...`,
+          ),
+        )
+      }
+      await runReactNative(
+        cwd,
+        platform,
+        environment,
+        brandName,
+        port,
+        inNewWindow,
+      )
+      return // Success
+    } catch (error) {
+      if (attempt === 1) {
+        console.warn(
+          chalk.yellow(
+            `\n[Self-Healing] Warning: ${platform.toUpperCase()} build failed. Triggering First Fallback (Clean Caches).`,
+          ),
+        )
+        const scriptPath = path.resolve(
+          __dirname,
+          '../../scripts/core/clean-build-env.sh',
+        )
+        spawnSync('bash', [scriptPath, platform], {
+          stdio: 'inherit',
+          encoding: 'utf-8',
+        })
+      } else if (attempt === 2) {
+        console.warn(
+          chalk.yellow(
+            `\n[Self-Healing] Warning: ${platform.toUpperCase()} build failed again. Triggering Second Fallback (Clean Caches & Sync Dependencies).`,
+          ),
+        )
+        const scriptPath = path.resolve(
+          __dirname,
+          '../../scripts/core/clean-build-env.sh',
+        )
+        spawnSync('bash', [scriptPath, platform], {
+          stdio: 'inherit',
+          encoding: 'utf-8',
+        })
+
+        console.log(
+          chalk.blue(`\n[Orchestrator] Synchronizing Node dependencies...`),
+        )
+        if (fs.existsSync(path.join(cwd, 'yarn.lock'))) {
+          spawnSync('yarn', ['install'], {
+            cwd,
+            stdio: 'inherit',
+            encoding: 'utf-8',
+          })
+        } else {
+          spawnSync('npm', ['install'], {
+            cwd,
+            stdio: 'inherit',
+            encoding: 'utf-8',
+          })
+        }
+
+        if (platform === 'ios') {
+          installPods(cwd)
+        }
+      } else {
+        console.error(
+          chalk.red(
+            `\n[Self-Healing] Fatal: ${platform.toUpperCase()} build failed on Attempt 3. Outputting raw error.`,
+          ),
+        )
+        console.error(error)
+        throw error // Final Failure
+      }
+      attempt++
+    }
+  }
+}
+
 export default {
   name: 'run',
   description: 'Run the project',
@@ -510,6 +612,16 @@ export default {
         }
       }
 
+      // Ensure Java version is active before triggering any Android builds
+      if (platform === 'android' || platform === 'both') {
+        try {
+          await ensureJavaVersion()
+        } catch (error) {
+          console.error(error.message)
+          process.exit(1)
+        }
+      }
+
       // Delegation 2: Build & Run
       if (platform === 'both') {
         console.log(
@@ -531,8 +643,22 @@ export default {
         await Promise.all([waitForMetro(8081), waitForMetro(8082)])
 
         await Promise.all([
-          runReactNative(cwd, 'android', environment, brandName, 8081, true),
-          runReactNative(cwd, 'ios', environment, brandName, 8082, true),
+          runReactNativeWithRetry(
+            cwd,
+            'android',
+            environment,
+            brandName,
+            8081,
+            true,
+          ),
+          runReactNativeWithRetry(
+            cwd,
+            'ios',
+            environment,
+            brandName,
+            8082,
+            true,
+          ),
         ])
       } else {
         const port = platform === 'ios' ? 8082 : 8081
@@ -544,7 +670,13 @@ export default {
         )
         await waitForMetro(port)
 
-        await runReactNative(cwd, platform, environment, brandName, port)
+        await runReactNativeWithRetry(
+          cwd,
+          platform,
+          environment,
+          brandName,
+          port,
+        )
       }
 
       console.log(

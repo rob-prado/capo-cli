@@ -66,20 +66,21 @@ if [ -f "${APP_JSON}" ]; then
     echo "Ensuring app.json displayName matches brand '${INITIAL_BRAND}'..."
     export BRAND="${INITIAL_BRAND}"
     perl -pi -e 's/"displayName":\s*".*?"/"displayName": "$ENV{BRAND}"/' "${APP_JSON}"
-    # Fix Gradle jlink bugs on Java 21+ by explicitly locking the daemon to Java 17
-    echo "Attempting to lock Gradle daemon to Java 17..."
-    JAVA17_PATH=""
+    JAVA_VERSION=$(cat "${SCRIPT_DIR}/../.capo-java-version" | tr -d '[:space:]')
+    # Fix Gradle jlink bugs on newer Java versions by explicitly locking the daemon
+    echo "Attempting to lock Gradle daemon to Java ${JAVA_VERSION}..."
+    JAVA_PATH=""
     if command -v mise >/dev/null 2>&1; then
-        JAVA17_PATH=$(mise where java@17 2>/dev/null || echo "")
+        JAVA_PATH=$(mise where "java@${JAVA_VERSION}" 2>/dev/null || echo "")
     fi
-    if [ -z "$JAVA17_PATH" ] && command -v /usr/libexec/java_home >/dev/null 2>&1; then
-        JAVA17_PATH=$(/usr/libexec/java_home -v 17 2>/dev/null || echo "")
+    if [ -z "$JAVA_PATH" ] && command -v /usr/libexec/java_home >/dev/null 2>&1; then
+        JAVA_PATH=$(/usr/libexec/java_home -v "${JAVA_VERSION}" 2>/dev/null || echo "")
     fi
-    if [ -n "$JAVA17_PATH" ]; then
-        echo "org.gradle.java.home=$JAVA17_PATH" >>"${TARGET_DIR}/android/gradle.properties"
-        echo "Locked Gradle daemon to Java 17 at $JAVA17_PATH"
+    if [ -n "$JAVA_PATH" ]; then
+        echo "org.gradle.java.home=$JAVA_PATH" >>"${TARGET_DIR}/android/gradle.properties"
+        echo "Locked Gradle daemon to Java ${JAVA_VERSION} at $JAVA_PATH"
     else
-        echo "Warning: Could not automatically locate Java 17. You may encounter jlink build errors on Java 21+."
+        echo "Warning: Could not automatically locate Java ${JAVA_VERSION}. You may encounter jlink build errors on newer Java versions."
     fi
 fi
 
@@ -154,6 +155,35 @@ if [ ! -f "${YARN_RC}" ]; then
     echo "nodeLinker: node-modules" >"${YARN_RC}"
     echo "Created .yarnrc.yml"
 fi
+
+# 3.1 Java Version Specifiers for Environment Managers
+echo "Generating Java version specifiers for popular managers..."
+cp "${SCRIPT_DIR}/../.capo-java-version" "${TARGET_DIR}/android/.java-version"
+cp "${SCRIPT_DIR}/../.capo-tool-versions" "${TARGET_DIR}/android/.tool-versions"
+cp "${SCRIPT_DIR}/../.capo-sdkmanrc" "${TARGET_DIR}/android/.sdkmanrc"
+
+# 3.2 Auto-install/activate Java in the generated project
+echo "Activating Java environment for Android..."
+(
+    cd "${TARGET_DIR}/android" || exit
+    if command -v mise >/dev/null 2>&1; then
+        echo "Using mise to install/activate Java..."
+        mise install java || true
+    elif command -v asdf >/dev/null 2>&1; then
+        echo "Using asdf to install/activate Java..."
+        asdf plugin add java 2>/dev/null || true
+        asdf install java || true
+    elif command -v jenv >/dev/null 2>&1; then
+        echo "Notice: jenv detected. Please ensure Java is added to jenv manually if not already present."
+    elif [ -s "$HOME/.sdkman/bin/sdkman-init.sh" ]; then
+        echo "Using sdkman to install/activate Java..."
+        # Source sdkman script strictly for this subshell
+        source "$HOME/.sdkman/bin/sdkman-init.sh"
+        sdk env install || true
+    else
+        echo "Notice: No supported Java environment manager (mise, asdf, sdkman, jenv) found. Please ensure Java is installed manually."
+    fi
+)
 
 # 4. Template Cloning & Placeholder Mutation
 # Now reliably resolving relative to the CLI's installation folder
